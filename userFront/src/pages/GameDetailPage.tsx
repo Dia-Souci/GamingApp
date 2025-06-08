@@ -3,13 +3,15 @@ import { useParams, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Heart, ShoppingCart, Users, Download, CheckCircle, Star } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
+import { useCartStore } from '../store/cartStore';
 
 const GameDetailPage: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const getGameById = useGameStore(state => state.getGameById);
+  const addToCart = useCartStore(state => state.addToCart);
   
   if (!gameId) {
-    return <Navigate to="/\" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const game = getGameById(gameId);
@@ -17,6 +19,18 @@ const GameDetailPage: React.FC = () => {
   if (!game) {
     return <Navigate to="/" replace />;
   }
+
+  const handleAddToCart = () => {
+    addToCart({
+      id: game.id,
+      title: game.title,
+      platform: game.platform,
+      originalPrice: game.originalPrice,
+      discountedPrice: game.discountedPrice,
+      discount: game.discount,
+      imageUrl: game.imageUrl
+    });
+  };
 
   return (
     <>
@@ -83,7 +97,10 @@ const GameDetailPage: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="space-y-3">
-                  <button className="w-full bg-gradient-to-r from-[#ff5b00] to-[#ff3300] hover:from-[#e54e00] hover:to-[#e52e00] text-white py-3 px-4 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all duration-200 shadow-lg">
+                  <button 
+                    onClick={handleAddToCart}
+                    className="w-full bg-gradient-to-r from-[#ff5b00] to-[#ff3300] hover:from-[#e54e00] hover:to-[#e52e00] text-white py-3 px-4 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all duration-200 shadow-lg"
+                  >
                     <ShoppingCart className="w-5 h-5" />
                     <span>Add to Cart</span>
                   </button>

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, X, Gamepad2, ShoppingCart } from 'lucide-react';
+import { useCartStore } from '../store/cartStore';
 
 const Header: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -7,6 +9,9 @@ const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  
+  const getTotalItems = useCartStore(state => state.getTotalItems);
+  const totalItems = getTotalItems();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -86,10 +91,10 @@ const Header: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center space-x-2">
               <Gamepad2 className="h-8 w-8 text-orange-500" />
               <span className="text-xl font-bold text-white">InstantGaming</span>
-            </div>
+            </Link>
 
             {/* Center Section - Navigation or Search */}
             <div className="flex-1 flex justify-center">
@@ -148,13 +153,18 @@ const Header: React.FC = () => {
               </button>
 
               {/* Cart Icon */}
-              <button className="p-2 text-gray-400 hover:text-white transition-colors duration-200 relative rounded-full hover:bg-gray-700">
+              <Link 
+                to="/cart"
+                className="p-2 text-gray-400 hover:text-white transition-colors duration-200 relative rounded-full hover:bg-gray-700"
+              >
                 <ShoppingCart className="h-5 w-5" />
                 {/* Cart badge */}
-                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                  3
-                </span>
-              </button>
+                {totalItems > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                    {totalItems > 99 ? '99+' : totalItems}
+                  </span>
+                )}
+              </Link>
             </div>
           </div>
         </div>

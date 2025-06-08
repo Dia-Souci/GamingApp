@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import GameDetailPage from './pages/GameDetailPage';
+import CartPage from './pages/CartPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/game/:gameId" element={<GameDetailPage />} />
+            <Route path="/cart" element={<CartPage />} />
           </Routes>
         </div>
       </Router>
