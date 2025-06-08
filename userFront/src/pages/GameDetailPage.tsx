@@ -11,7 +11,7 @@ const GameDetailPage: React.FC = () => {
   const addToCart = useCartStore(state => state.addToCart);
   
   if (!gameId) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/\" replace />;
   }
 
   const game = getGameById(gameId);
