@@ -48,7 +48,7 @@ const CartPage: React.FC = () => {
                   <div className="w-8 h-8 bg-[#2C2C2C] text-[#DDDDDD] rounded-full flex items-center justify-center text-sm">
                     3
                   </div>
-                  <span className="ml-2 text-[#DDDDDD]">Game activation</span>
+                  <span className="ml-2 text-[#DDDDDD]">Confirmation</span>
                 </div>
               </div>
             </div>
@@ -101,7 +101,7 @@ const CartPage: React.FC = () => {
                 <div className="w-8 h-8 bg-[#2C2C2C] text-[#DDDDDD] rounded-full flex items-center justify-center text-sm">
                   3
                 </div>
-                <span className="ml-2 text-[#DDDDDD]">Game activation</span>
+                <span className="ml-2 text-[#DDDDDD]">Confirmation</span>
               </div>
             </div>
           </div>
@@ -207,9 +207,12 @@ const CartPage: React.FC = () => {
                   </div>
                 </div>
                 
-                <button className="w-full bg-gradient-to-r from-[#FF6600] to-[#ff3300] hover:from-[#e55a00] hover:to-[#e52e00] text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 mb-4">
+                <Link 
+                  to="/checkout"
+                  className="block w-full bg-gradient-to-r from-[#FF6600] to-[#ff3300] hover:from-[#e55a00] hover:to-[#e52e00] text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 mb-4 text-center"
+                >
                   Go to payment →
-                </button>
+                </Link>
                 
                 <div className="text-center">
                   <span className="text-[#DDDDDD] text-sm">or</span>
