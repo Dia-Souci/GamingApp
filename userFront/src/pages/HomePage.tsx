@@ -1,12 +1,12 @@
 import React from 'react';
 import Hero from '../components/Hero';
-import CategoryGameGrid from '../components/CategoryGameGrid';
+import GameGrid from '../components/GameGrid';
 
 const HomePage: React.FC = () => {
   return (
     <>
       <Hero />
-      <CategoryGameGrid />
+      <GameGrid />
       
       {/* Footer */}
       <footer className="bg-[#121212] py-12 border-t border-gray-800">
