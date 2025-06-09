@@ -95,12 +95,7 @@ const GameCard: React.FC<GameCardProps> = ({
             )}
           </div>
           
-          <button 
-            className="bg-[#FF6600] hover:bg-[#e55a00] text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200"
-            onClick={handleAddToCart}
-          >
-            Buy
-          </button>
+          
         </div>
       </div>
     </Link>

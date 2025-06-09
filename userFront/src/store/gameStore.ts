@@ -762,7 +762,7 @@ const gameData: Game[] = [
     inStock: true,
     deliveryMethod: "Digital Download",
     usersOnPage: 198
-  }/*,
+  },
   {
     id: "final-fantasy-vii-remake-ps",
     title: "Final Fantasy VII Remake",
@@ -1802,7 +1802,7 @@ const gameData: Game[] = [
     inStock: true,
     deliveryMethod: "Digital Download",
     usersOnPage: 98
-  }*/
+  }
 ];
 
 export const useGameStore = create<GameStore>((set, get) => ({
