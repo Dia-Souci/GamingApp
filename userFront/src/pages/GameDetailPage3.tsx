@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { useParams, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Heart, ShoppingCart, Users, Download, CheckCircle, Star } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
@@ -7,7 +7,6 @@ import { useCartStore } from '../store/cartStore';
 
 const GameDetailPage: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
-  const navigate = useNavigate();
   const getGameById = useGameStore(state => state.getGameById);
   const addToCart = useCartStore(state => state.addToCart);
   
@@ -32,8 +31,6 @@ const GameDetailPage: React.FC = () => {
       imageUrl: game.imageUrl
     });
     
-    // Navigate to cart page after adding the item
-    navigate('/cart');
   };
 
   return (

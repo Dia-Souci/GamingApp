@@ -2,6 +2,7 @@ import React, { useEffect, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import Hero from '../components/Hero';
 import GameGrid from '../components/GameGrid';
+import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 
@@ -35,6 +36,10 @@ const HomePage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
 
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, [setSearchQuery]);
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
@@ -53,6 +58,14 @@ const HomePage: React.FC = () => {
             <p className="text-[#DDDDDD] text-lg mb-8">
               Discover the best deals on the latest and greatest games
             </p>
+            
+            {/* Search Bar */}
+            <div className="flex justify-center mb-8">
+              <SearchBar 
+                onSearch={handleSearch}
+                placeholder="Search all games..."
+              />
+            </div>
 
             {/* Results Info */}
             <div className="flex items-center justify-between mb-6">

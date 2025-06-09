@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -12,17 +12,13 @@ const SearchBar: React.FC<SearchBarProps> = ({
   placeholder = "Search games..." 
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get('search') || '');
+  const query = searchParams.get('search') || '';
 
   useEffect(() => {
-    const searchQuery = searchParams.get('search') || '';
-    setQuery(searchQuery);
-    onSearch(searchQuery);
-  }, [searchParams, onSearch]);
+    onSearch(query);
+  }, [query, onSearch]);
 
-  const handleSearch = (value: string) => {
-    setQuery(value);
-    
+  const handleInputChange = (value: string) => {
     // Update URL with search parameter
     if (value.trim()) {
       setSearchParams(prev => {
@@ -37,12 +33,14 @@ const SearchBar: React.FC<SearchBarProps> = ({
         return newParams;
       });
     }
-    
-    onSearch(value);
   };
 
   const clearSearch = () => {
-    handleSearch('');
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.delete('search');
+      return newParams;
+    });
   };
 
   return (
@@ -52,7 +50,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
         <input
           type="text"
           value={query}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           placeholder={placeholder}
           className="w-full pl-10 pr-10 py-3 bg-[#2C2C2C] border border-[#3a3a3a] rounded-lg text-white placeholder-[#DDDDDD]/60 focus:outline-none focus:border-[#FF6600] focus:ring-2 focus:ring-[#FF6600]/20 transition-all duration-200"
         />

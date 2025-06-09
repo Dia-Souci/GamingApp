@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useCartStore } from '../store/cartStore';
 
 interface GameCardProps {
   id: string;
@@ -22,22 +21,8 @@ const GameCard: React.FC<GameCardProps> = ({
   platform
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const addToCart = useCartStore(state => state.addToCart);
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    addToCart({
-      id,
-      title,
-      platform,
-      originalPrice,
-      discountedPrice,
-      discount,
-      imageUrl
-    });
-  };
+  
 
   return (
     <Link 
@@ -95,12 +80,7 @@ const GameCard: React.FC<GameCardProps> = ({
             )}
           </div>
           
-          <button 
-            className="bg-[#FF6600] hover:bg-[#e55a00] text-white px-3 py-1 rounded text-xs font-medium transition-colors duration-200"
-            onClick={handleAddToCart}
-          >
-            Buy
-          </button>
+          
         </div>
       </div>
     </Link>

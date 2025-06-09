@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation  } from 'react-router-dom';
 import { Search, X, Gamepad2, ShoppingCart ,Monitor, Gamepad, Zap } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
-import { useGameStore } from '../store/gameStore';
+
 
 const categories = [
   { 
@@ -42,33 +42,26 @@ const categories = [
   }
 ];
  
+
 const Header: React.FC = () => {
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { setSearchQuery } = useGameStore();
+   const location = useLocation();
   
-  const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname === path;
-  };
+    const isActive = (path: string) => {
+      if (path === '/') {
+        return location.pathname === '/';
+      }
+      return location.pathname === path;
+    };
+
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQueryLocal] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   
   const getTotalItems = useCartStore(state => state.getTotalItems);
   const totalItems = getTotalItems();
-
-  // Sync search query with URL params
-  useEffect(() => {
-    const urlQuery = searchParams.get('search') || '';
-    setSearchQueryLocal(urlQuery);
-    setSearchQuery(urlQuery);
-  }, [searchParams, setSearchQuery]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,6 +83,7 @@ const Header: React.FC = () => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isSearchOpen) {
         setIsSearchOpen(false);
+        setSearchQuery('');
       }
     };
 
@@ -100,6 +94,7 @@ const Header: React.FC = () => {
         !searchContainerRef.current.contains(e.target as Node)
       ) {
         setIsSearchOpen(false);
+        setSearchQuery('');
       }
     };
 
@@ -112,49 +107,17 @@ const Header: React.FC = () => {
     };
   }, [isSearchOpen]);
   
+
   const handleSearchToggle = () => {
     setIsSearchOpen(!isSearchOpen);
+    if (isSearchOpen) {
+      setSearchQuery('');
+    }
   };
 
   const handleSearchClose = () => {
     setIsSearchOpen(false);
-  };
-
-  const handleInputChange = (value: string) => {
-    setSearchQueryLocal(value);
-    
-    // Update URL with search parameter
-    if (value.trim()) {
-      setSearchParams(prev => {
-        const newParams = new URLSearchParams(prev);
-        newParams.set('search', value.trim());
-        return newParams;
-      });
-    } else {
-      setSearchParams(prev => {
-        const newParams = new URLSearchParams(prev);
-        newParams.delete('search');
-        return newParams;
-      });
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchQueryLocal('');
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.delete('search');
-      return newParams;
-    });
-  };
-
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) {
-      // Navigate to home page if not already there to show search results
-      if (location.pathname !== '/') {
-        window.location.href = `/?search=${encodeURIComponent(searchQuery.trim())}`;
-      }
-    }
+    setSearchQuery('');
   };
 
   return (
@@ -189,25 +152,17 @@ const Header: React.FC = () => {
                       ref={searchInputRef}
                       type="text"
                       value={searchQuery}
-                      onChange={(e) => handleInputChange(e.target.value)}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search games..."
-                      className="w-full px-4 py-2 pl-10 pr-10 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all duration-200"
+                      className="w-full px-4 py-2 pl-10 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all duration-200"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          handleSearchSubmit();
+                          console.log('Search for:', searchQuery);
+                          // Handle search logic here
                         }
                       }}
                     />
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    {searchQuery && (
-                      <button
-                        onClick={clearSearch}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors duration-200"
-                        title="Clear search"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
                   </div>
                   <button
                     onClick={handleSearchClose}
@@ -219,24 +174,24 @@ const Header: React.FC = () => {
               ) : (
                 <nav className="hidden md:flex items-center space-x-8">
                   {categories.map((category) => {
-                    const Icon = category.icon;
-                    const active = isActive(category.path);
-                    
-                    return (
-                      <Link
-                        key={category.id}
-                        to={category.path}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
-                          active
-                            ? `bg-gradient-to-r ${category.color} text-white shadow-lg transform scale-105`
-                            : 'text-[#DDDDDD] hover:text-white hover:bg-[#3a3a3a]'
-                        }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span>{category.name}</span>
-                      </Link>
-                    );
-                  })}
+                              const Icon = category.icon;
+                              const active = isActive(category.path);
+                              
+                              return (
+                                <Link
+                                  key={category.id}
+                                  to={category.path}
+                                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
+                                    active
+                                      ? `bg-gradient-to-r ${category.color} text-white shadow-lg transform scale-105`
+                                      : 'text-[#DDDDDD] hover:text-white hover:bg-[#3a3a3a]'
+                                  }`}
+                                >
+                                  <Icon className="w-5 h-5" />
+                                  <span>{category.name}</span>
+                                </Link>
+                              );
+                            })}
                 </nav>
               )}
             </div>
