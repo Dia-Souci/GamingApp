@@ -121,6 +121,7 @@ export const gameService = {
     const response = await api.get<PaginatedResponse<Game>>('/games', {
       params: filters,
     });
+    console.log('Here Mock API Call')
     return response.data;
   },
 
