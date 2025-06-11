@@ -1,87 +1,324 @@
-import { Order, OrderFormData } from '../types/order';
-import { Game } from '../store/gameStore';
+import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
+import { 
+  Product, 
+  ProductFilters, 
+  CreateOrderRequest, 
+  Order, 
+  ApiResponse, 
+  PaginatedResponse, 
+  ApiError,
+  LoginRequest,
+  AuthResponse,
+  User
+} from '../types/api';
 
-// Mock API base URL - in production this would be your actual API
-const API_BASE_URL = 'http://localhost:3001';
+// Create axios instance with configuration
+const createApiInstance = (): AxiosInstance => {
+  const instance = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+    timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '5000'),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
-// Mock delay to simulate network requests
-const mockDelay = (ms: number = 1000) => new Promise(resolve => setTimeout(resolve, ms));
+  // Request interceptor for adding auth token
+  instance.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      
+      // Log requests in development
+      if (import.meta.env.VITE_ENVIRONMENT === 'development') {
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+          params: config.params,
+          data: config.data,
+        });
+      }
+      
+      return config;
+    },
+    (error) => {
+      console.error('❌ Request Error:', error);
+      return Promise.reject(error);
+    }
+  );
 
-// Mock products data (this would normally come from your backend)
-const mockProducts: Game[] = [
-  // Your existing game data from gameStore.ts would be here
-  // For now, we'll use the data from the store
-];
+  // Response interceptor for error handling
+  instance.interceptors.response.use(
+    (response: AxiosResponse) => {
+      // Log responses in development
+      if (import.meta.env.VITE_ENVIRONMENT === 'development') {
+        console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
+      }
+      return response;
+    },
+    (error: AxiosError) => {
+      const apiError: ApiError = {
+        message: 'An unexpected error occurred',
+        status: 500,
+      };
 
-// Mock orders storage (in production this would be a database)
-let mockOrders: Order[] = [];
+      if (error.response) {
+        // Server responded with error status
+        apiError.status = error.response.status;
+        apiError.message = (error.response.data as any)?.message || error.message;
+        apiError.errors = (error.response.data as any)?.errors;
+      } else if (error.request) {
+        // Request was made but no response received
+        apiError.message = 'Network error - please check your connection';
+        apiError.status = 0;
+      } else {
+        // Something else happened
+        apiError.message = error.message;
+      }
 
-export const api = {
-  // Fetch all products
-  async getProducts(): Promise<Game[]> {
-    await mockDelay(500);
-    
-    // In a real app, this would be:
-    // const response = await fetch(`${API_BASE_URL}/products`);
-    // return response.json();
-    
-    // For now, return mock data
-    return mockProducts;
+      console.error('❌ API Error:', apiError);
+      return Promise.reject(apiError);
+    }
+  );
+
+  return instance;
+};
+
+const api = createApiInstance();
+
+// Product Service
+export const productService = {
+  /**
+   * Get all products with optional filtering
+   */
+  getAll: async (filters?: ProductFilters): Promise<PaginatedResponse<Product>> => {
+    const response = await api.get<PaginatedResponse<Product>>('/products', {
+      params: filters,
+    });
+    return response.data;
   },
 
-  // Fetch single product by ID
-  async getProductById(id: string): Promise<Game | null> {
-    await mockDelay(300);
-    
-    // In a real app:
-    // const response = await fetch(`${API_BASE_URL}/products/${id}`);
-    // return response.json();
-    
-    return mockProducts.find(product => product.id === id) || null;
+  /**
+   * Get a single product by ID
+   */
+  getById: async (id: string): Promise<Product> => {
+    const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
+    return response.data.data;
   },
 
-  // Submit order
-  async submitOrder(orderData: OrderFormData, cartItems: any[], totalAmount: number): Promise<Order> {
-    await mockDelay(1500); // Simulate processing time
-    
-    const order: Order = {
-      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      ...orderData,
-      items: cartItems,
-      totalAmount,
-      orderDate: new Date().toISOString(),
-      status: 'pending'
-    };
-
-    // In a real app, this would be:
-    // const response = await fetch(`${API_BASE_URL}/orders`, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(order)
-    // });
-    // return response.json();
-
-    // Mock storage
-    mockOrders.push(order);
-    
-    // Simulate potential API errors (uncomment to test error handling)
-    // if (Math.random() < 0.1) {
-    //   throw new Error('Order submission failed. Please try again.');
-    // }
-
-    return order;
+  /**
+   * Get products by category/platform
+   */
+  getByCategory: async (platform: string, filters?: Omit<ProductFilters, 'platform'>): Promise<PaginatedResponse<Product>> => {
+    const response = await api.get<PaginatedResponse<Product>>('/products', {
+      params: { ...filters, platform },
+    });
+    return response.data;
   },
 
-  // Get order by ID
-  async getOrderById(id: string): Promise<Order | null> {
-    await mockDelay(300);
+  /**
+   * Search products by query
+   */
+  search: async (query: string, filters?: Omit<ProductFilters, 'q'>): Promise<PaginatedResponse<Product>> => {
+    const response = await api.get<PaginatedResponse<Product>>('/products', {
+      params: { ...filters, q: query },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get featured products
+   */
+  getFeatured: async (limit: number = 12): Promise<Product[]> => {
+    const response = await api.get<ApiResponse<Product[]>>('/products/featured', {
+      params: { limit },
+    });
+    return response.data.data;
+  },
+};
+
+// Order Service
+export const orderService = {
+  /**
+   * Create a new order
+   */
+  create: async (orderData: CreateOrderRequest): Promise<Order> => {
+    const response = await api.post<ApiResponse<Order>>('/orders', orderData);
+    return response.data.data;
+  },
+
+  /**
+   * Get order by ID
+   */
+  getById: async (id: string): Promise<Order> => {
+    const response = await api.get<ApiResponse<Order>>(`/orders/${id}`);
+    return response.data.data;
+  },
+
+  /**
+   * Get all orders (admin only)
+   */
+  getAll: async (filters?: { page?: number; limit?: number; status?: string }): Promise<PaginatedResponse<Order>> => {
+    const response = await api.get<PaginatedResponse<Order>>('/orders', {
+      params: filters,
+    });
+    return response.data;
+  },
+
+  /**
+   * Update order status (admin only)
+   */
+  updateStatus: async (id: string, status: Order['status']): Promise<Order> => {
+    const response = await api.patch<ApiResponse<Order>>(`/orders/${id}/status`, { status });
+    return response.data.data;
+  },
+};
+
+// Authentication Service (for future implementation)
+export const authService = {
+  /**
+   * Login user
+   */
+  login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', credentials);
+    const authData = response.data.data;
     
-    // In a real app:
-    // const response = await fetch(`${API_BASE_URL}/orders/${id}`);
-    // return response.json();
+    // Store token in localStorage
+    localStorage.setItem('authToken', authData.token);
     
-    return mockOrders.find(order => order.id === id) || null;
-  }
+    return authData;
+  },
+
+  /**
+   * Logout user
+   */
+  logout: async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      // Always remove token from localStorage
+      localStorage.removeItem('authToken');
+    }
+  },
+
+  /**
+   * Get current user profile
+   */
+  getProfile: async (): Promise<User> => {
+    const response = await api.get<ApiResponse<User>>('/auth/profile');
+    return response.data.data;
+  },
+
+  /**
+   * Refresh authentication token
+   */
+  refreshToken: async (): Promise<AuthResponse> => {
+    const response = await api.post<ApiResponse<AuthResponse>>('/auth/refresh');
+    const authData = response.data.data;
+    
+    // Update token in localStorage
+    localStorage.setItem('authToken', authData.token);
+    
+    return authData;
+  },
+};
+
+// Admin Service
+export const adminService = {
+  /**
+   * Get admin dashboard stats
+   */
+  getDashboardStats: async (): Promise<any> => {
+    const response = await api.get<ApiResponse<any>>('/admin/dashboard');
+    return response.data.data;
+  },
+
+  /**
+   * Get all users (admin only)
+   */
+  getUsers: async (filters?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>> => {
+    const response = await api.get<PaginatedResponse<User>>('/admin/users', {
+      params: filters,
+    });
+    return response.data;
+  },
+
+  /**
+   * Create new product (admin only)
+   */
+  createProduct: async (productData: Omit<Product, 'id'>): Promise<Product> => {
+    const response = await api.post<ApiResponse<Product>>('/admin/products', productData);
+    return response.data.data;
+  },
+
+  /**
+   * Update product (admin only)
+   */
+  updateProduct: async (id: string, productData: Partial<Product>): Promise<Product> => {
+    const response = await api.patch<ApiResponse<Product>>(`/admin/products/${id}`, productData);
+    return response.data.data;
+  },
+
+  /**
+   * Delete product (admin only)
+   */
+  deleteProduct: async (id: string): Promise<void> => {
+    await api.delete(`/admin/products/${id}`);
+  },
+};
+
+// Utility functions
+export const apiUtils = {
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated: (): boolean => {
+    return !!localStorage.getItem('authToken');
+  },
+
+  /**
+   * Get stored auth token
+   */
+  getAuthToken: (): string | null => {
+    return localStorage.getItem('authToken');
+  },
+
+  /**
+   * Handle API errors consistently
+   */
+  handleError: (error: ApiError): string => {
+    if (error.status === 401) {
+      // Unauthorized - redirect to login
+      localStorage.removeItem('authToken');
+      window.location.href = '/login';
+      return 'Please log in to continue';
+    }
+    
+    if (error.status === 403) {
+      return 'You do not have permission to perform this action';
+    }
+    
+    if (error.status === 404) {
+      return 'The requested resource was not found';
+    }
+    
+    if (error.status === 422 && error.errors) {
+      // Validation errors
+      const firstError = Object.values(error.errors)[0];
+      return Array.isArray(firstError) ? firstError[0] : firstError;
+    }
+    
+    return error.message || 'An unexpected error occurred';
+  },
+};
+
+// Export the configured axios instance for custom requests
+export { api };
+
+// Default export
+export default {
+  productService,
+  orderService,
+  authService,
+  adminService,
+  apiUtils,
 };
