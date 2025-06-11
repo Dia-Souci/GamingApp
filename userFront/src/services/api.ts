@@ -240,8 +240,3 @@ export default {
   apiUtils,
 };
 
-export { apiUtils }
-
-export { gameService }
-
-export { orderService }
