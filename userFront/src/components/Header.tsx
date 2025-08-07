@@ -162,8 +162,8 @@ const Header: React.FC = () => {
       <div 
         className={`transition-all duration-300 border-b ${
           isScrolled 
-            ? 'bg-gray-900 bg-opacity-95 backdrop-blur-md border-gray-700' 
-            : 'bg-transparent border-transparent'
+            ? 'bg-gradient-to-b from-black via-gray-900 to-transparent border-none'
+            : 'bg-transparent border-transparent border-none'
         }`}
         style={{ 
           backdropFilter: isScrolled ? 'blur(10px)' : 'none'
@@ -174,7 +174,7 @@ const Header: React.FC = () => {
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-2">
               <Gamepad2 className="h-8 w-8 text-orange-500" />
-              <span className="text-xl font-bold text-white">InstantGaming</span>
+              <span className="text-xl font-bold text-white">RedHawk</span>
             </Link>
 
             {/* Center Section - Navigation or Search */}

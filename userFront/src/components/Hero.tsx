@@ -38,11 +38,11 @@ const Hero: React.FC = () => {
                   -67%
                 </div>
               </div>
-              
+             
               {/* CTA Button */}
-              <button className="bg-[#FF6600] hover:bg-[#e55a00] text-white px-8 py-3 rounded-lg font-semibold text-lg transition-colors duration-200 shadow-lg hover:shadow-xl">
+             {/*  <button className="bg-[#FF6600] hover:bg-[#e55a00] text-white px-8 py-3 rounded-lg font-semibold text-lg transition-colors duration-200 shadow-lg hover:shadow-xl">
                 Buy Now
-              </button>
+              </button>*/}
             </div>
           </div>
         </div>
