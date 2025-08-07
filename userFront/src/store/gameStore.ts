@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { gameApi } from '../services/gameApi';
 
 export interface Game {
   id: string;
@@ -30,6 +31,7 @@ interface GameStore {
   searchQuery: string;
   selectedPlatform: string | null;
   isLoading: boolean;
+  error: string | null;
   
   // Actions
   setGames: (games: Game[]) => void;
@@ -37,11 +39,17 @@ interface GameStore {
   setSearchQuery: (query: string) => void;
   setSelectedPlatform: (platform: string | null) => void;
   setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
   filterGames: () => void;
   getGameById: (id: string) => Game | undefined;
   getPaginatedGames: () => Game[];
   getTotalPages: () => number;
   resetFilters: () => void;
+  
+  // API Actions
+  fetchGames: () => Promise<void>;
+  fetchGameById: (id: string) => Promise<Game | null>;
+  searchGames: (query: string, platform?: string) => Game[];
 }
 
 // Realistic mock game data sourced from popular games
@@ -743,9 +751,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   searchQuery: '',
   selectedPlatform: null,
   isLoading: false,
+  error: null,
 
   setGames: (games) => {
     set({ games });
+    // Initialize the game API with the new games data
+    gameApi.initializeMock(games);
     get().filterGames();
   },
 
@@ -762,6 +773,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setLoading: (loading) => set({ isLoading: loading }),
+
+  setError: (error) => set({ error }),
 
   filterGames: () => {
     const { games, searchQuery, selectedPlatform } = get();
@@ -811,5 +824,69 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentPage: 1
     });
     get().filterGames();
+  },
+
+  // API Actions
+  fetchGames: async () => {
+    const { setLoading, setError, setGames } = get();
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await gameApi.getAll();
+      setGames(response.data);
+    } catch (error: any) {
+      console.error('Failed to fetch games:', error);
+      setError(error.message || 'Failed to fetch games');
+    } finally {
+      setLoading(false);
+    }
+  },
+
+  fetchGameById: async (id: string) => {
+    const { setLoading, setError } = get();
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const game = await gameApi.getById(id);
+      return game;
+    } catch (error: any) {
+      console.error('Failed to fetch game:', error);
+      setError(error.message || 'Failed to fetch game');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  },
+
+  searchGames: (query: string, platform?: string) => {
+    const { games } = get();
+    
+    let filtered = games;
+
+    // Filter by platform if provided
+    if (platform) {
+      filtered = filtered.filter(game => game.platform === platform);
+    }
+
+    // Filter by search query
+    if (query.trim()) {
+      const searchQuery = query.toLowerCase().trim();
+      filtered = filtered.filter(game =>
+        game.title.toLowerCase().includes(searchQuery) ||
+        game.developer.toLowerCase().includes(searchQuery) ||
+        game.publisher.toLowerCase().includes(searchQuery) ||
+        game.genre.some(g => g.toLowerCase().includes(searchQuery)) ||
+        game.tags.some(tag => tag.toLowerCase().includes(searchQuery))
+      );
+    }
+
+    return filtered;
   }
 }));
+
+// Initialize the mock API with the default games
+gameApi.initializeMock(mockGames);
