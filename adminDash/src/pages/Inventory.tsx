@@ -55,7 +55,9 @@ export const Inventory: React.FC = () => {
       genre: game?.genre?.join(', ') || '',
       tags: game?.tags?.join(', ') || '',
       featured: game?.featured || false,
-      status: game?.status || 'active'
+      status: game?.status || 'active',
+      imageUrl: game?.imageUrl || '',
+      videoUrl: game?.videoUrl || ''
     });
 
     const handleSubmit = (e: React.FormEvent) => {
