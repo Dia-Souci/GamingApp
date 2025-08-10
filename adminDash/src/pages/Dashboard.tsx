@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, ShoppingCart, Package, AlertTriangle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, ShoppingCart, Package, AlertTriangle, Users, DollarSign } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { Card } from '../components/UI/Card';
-import { mockStats, revenueData, orderStatusData } from '../data/mockData';
+import { useApi } from '../hooks/useApi';
+import { analyticsService, apiUtils } from '../services/api';
 
 const StatCard: React.FC<{
   title: string;
@@ -33,6 +34,55 @@ const StatCard: React.FC<{
 );
 
 export const Dashboard: React.FC = () => {
+  const { data: stats, loading: statsLoading, error: statsError } = useApi(
+    () => analyticsService.getDashboardStats(),
+    []
+  );
+
+  const { data: revenueData, loading: revenueLoading } = useApi(
+    () => analyticsService.getRevenueData('month'),
+    []
+  );
+/*
+  // Use real data or fallback to mock data
+  const revenueData = [
+    { name: 'Jan', revenue: 12000 },
+    { name: 'Feb', revenue: 15000 },
+    { name: 'Mar', revenue: 13500 },
+    { name: 'Apr', revenue: 16800 },
+    { name: 'May', revenue: 14200 },
+    { name: 'Jun', revenue: 18500 }
+  ];
+*/
+  const orderStatusData = [
+    { name: 'Delivered', value: stats?.completedOrders || 0, fill: '#10b981' },
+    { name: 'Processing', value: stats?.pendingOrders || 0, fill: '#f59e0b' },
+    { name: 'Cancelled', value: stats?.cancelledOrders || 0, fill: '#ef4444' }
+  ];
+
+  if (statsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ff5100] mx-auto mb-4"></div>
+          <p className="text-[#c4c4c4]">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (statsError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <p className="text-red-400 mb-2">Failed to load dashboard</p>
+          <p className="text-[#c4c4c4] text-sm">{statsError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -54,29 +104,29 @@ export const Dashboard: React.FC = () => {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
       >
         <StatCard
-          title="Orders Today"
-          value={mockStats.ordersToday}
+          title="Total Orders"
+          value={stats?.totalOrders || 0}
           icon={<ShoppingCart className="w-6 h-6 text-white" />}
-          trend={12}
+          trend={(stats?.totalOrders ?? 0)> 0 ? 8 : undefined}
           color="bg-gradient-to-br from-[#ff5100] to-[#e64400]"
         />
         <StatCard
           title="Total Revenue"
-          value={`$${mockStats.totalRevenue.toLocaleString()}`}
-          icon={<TrendingUp className="w-6 h-6 text-white" />}
-          trend={8}
+          value={apiUtils.formatCurrency(stats?.totalRevenue || 0, 'DZD')}
+          icon={<DollarSign className="w-6 h-6 text-white" />}
+          trend={(stats?.totalRevenue ?? 0) > 0 ? 12 : undefined}
           color="bg-gradient-to-br from-green-500 to-green-600"
         />
         <StatCard
-          title="Total Products"
-          value={mockStats.totalProducts}
+          title="Pending Orders"
+          value={stats?.pendingOrders || 0}
           icon={<Package className="w-6 h-6 text-white" />}
           color="bg-gradient-to-br from-blue-500 to-blue-600"
         />
         <StatCard
-          title="Low Stock Alerts"
-          value={mockStats.lowStockAlerts}
-          icon={<AlertTriangle className="w-6 h-6 text-white" />}
+          title="Guest Orders"
+          value={stats?.guestOrders || 0}
+          icon={<Users className="w-6 h-6 text-white" />}
           color="bg-gradient-to-br from-yellow-500 to-yellow-600"
         />
       </motion.div>
@@ -90,11 +140,24 @@ export const Dashboard: React.FC = () => {
         >
           <Card>
             <h3 className="text-xl font-semibold text-white mb-4">Revenue Trend</h3>
-            <ResponsiveContainer width="100%" height={300}>
+            {revenueLoading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ff5100]"></div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
               <BarChart data={revenueData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#3a3f45" />
                 <XAxis dataKey="name" stroke="#c4c4c4" />
                 <YAxis stroke="#c4c4c4" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#2a2f35', 
+                    border: '1px solid #3a3f45',
+                    borderRadius: '8px',
+                    color: '#ffffff'
+                  }}
+                />
                 <Bar dataKey="revenue" fill="url(#gradient)" />
                 <defs>
                   <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
@@ -104,6 +167,7 @@ export const Dashboard: React.FC = () => {
                 </defs>
               </BarChart>
             </ResponsiveContainer>
+            )}
           </Card>
         </motion.div>
 
@@ -116,6 +180,14 @@ export const Dashboard: React.FC = () => {
             <h3 className="text-xl font-semibold text-white mb-4">Order Status Distribution</h3>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#2a2f35', 
+                    border: '1px solid #3a3f45',
+                    borderRadius: '8px',
+                    color: '#ffffff'
+                  }}
+                />
                 <Pie
                   data={orderStatusData}
                   cx="50%"
@@ -138,13 +210,41 @@ export const Dashboard: React.FC = () => {
                     className="w-3 h-3 rounded-full mr-2"
                     style={{ backgroundColor: entry.fill }}
                   />
-                  <span className="text-[#c4c4c4] text-sm">{entry.name}</span>
+                  <span className="text-[#c4c4c4] text-sm">{entry.name} ({entry.value})</span>
                 </div>
               ))}
             </div>
           </Card>
         </motion.div>
       </div>
+
+      {/* Recent Activity */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Card>
+          <h3 className="text-xl font-semibold text-white mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button className="p-4 bg-[#1b1f24] rounded-lg hover:bg-[#3a3f45] transition-colors text-left">
+              <ShoppingCart className="w-8 h-8 text-[#ff5100] mb-2" />
+              <h4 className="text-white font-medium">View Orders</h4>
+              <p className="text-[#c4c4c4] text-sm">Manage customer orders</p>
+            </button>
+            <button className="p-4 bg-[#1b1f24] rounded-lg hover:bg-[#3a3f45] transition-colors text-left">
+              <Package className="w-8 h-8 text-[#ff5100] mb-2" />
+              <h4 className="text-white font-medium">Manage Inventory</h4>
+              <p className="text-[#c4c4c4] text-sm">Add or update games</p>
+            </button>
+            <button className="p-4 bg-[#1b1f24] rounded-lg hover:bg-[#3a3f45] transition-colors text-left">
+              <TrendingUp className="w-8 h-8 text-[#ff5100] mb-2" />
+              <h4 className="text-white font-medium">View Analytics</h4>
+              <p className="text-[#c4c4c4] text-sm">Track performance</p>
+            </button>
+          </div>
+        </Card>
+      </motion.div>
     </div>
   );
 };

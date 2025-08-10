@@ -35,6 +35,8 @@ export class OrdersService {
       discountedPrice: item.discountedPrice,
       discount: item.discount,
       imageUrl: item.imageUrl,
+      iconUrl: item.iconUrl,
+      coverImageUrl: item.coverImageUrl,
       activationKey: '', // Will be set after payment
       keyDelivered: false,
       keyDeliveredAt: null,

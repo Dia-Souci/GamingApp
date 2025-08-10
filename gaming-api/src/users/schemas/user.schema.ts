@@ -23,7 +23,9 @@ export class User {
     lastName?: string;
     phoneNumber?: string;
     dateOfBirth?: Date;
-    avatar?: string;
+    avatar?: string; // Should contain a URL to the avatar image
+    bannerImage?: string; // Should contain a URL to the banner image
+    bio?: string; // User bio/description
   };
 
   // Address Information for Algerian customers

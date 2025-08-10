@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsBoolean, Min, Max } from 'class-validator';
+import { IsMediaUrl, IsMediaUrlArray } from '../../common/validators/media-url.validator';
 
 export class CreateGameDto {
   @IsString()
@@ -53,23 +54,38 @@ export class CreateGameDto {
   @IsString({ each: true })
   tags?: string[];
 
-  // Media
+  // Media - All fields now use custom media URL validation
   @IsOptional()
-  @IsString()
+  @IsMediaUrl('image')
   imageUrl?: string;
 
   @IsOptional()
-  @IsString()
+  @IsMediaUrl('image')
   heroImageUrl?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
+  @IsMediaUrlArray('image')
   screenshots?: string[];
 
   @IsOptional()
-  @IsString()
+  @IsMediaUrl('video')
   videoUrl?: string;
+
+  @IsOptional()
+  @IsMediaUrl('video')
+  trailerUrl?: string; // Game trailer video URL
+
+  @IsOptional()
+  @IsMediaUrlArray('image')
+  galleryImages?: string[]; // Additional gallery images
+
+  @IsOptional()
+  @IsMediaUrl('image')
+  coverImageUrl?: string; // Game cover image URL
+
+  @IsOptional()
+  @IsMediaUrl('image')
+  iconUrl?: string; // Game icon/logo URL
 
   // Game Details
   @IsOptional()

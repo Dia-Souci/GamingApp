@@ -25,74 +25,92 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Media Management
+
+This API uses a **URL-based approach** for all media files (images, videos, etc.) instead of file uploads. This simplifies the frontend implementation and provides better scalability.
+
+### Media Fields
+
+#### Games
+- `imageUrl`: Main game image URL
+- `heroImageUrl`: Hero/banner image URL  
+- `coverImageUrl`: Game cover image URL
+- `iconUrl`: Game icon/logo URL
+- `screenshots`: Array of screenshot URLs
+- `galleryImages`: Array of additional gallery image URLs
+- `videoUrl`: Gameplay video URL
+- `trailerUrl`: Game trailer video URL
+
+#### Users
+- `avatar`: Profile picture URL
+- `bannerImage`: Profile banner image URL
+
+#### Cart & Orders
+- `imageUrl`: Game image URL for display
+- `iconUrl`: Game icon URL
+- `coverImageUrl`: Game cover image URL
+
+### URL Validation
+
+All media fields use **custom validation** that ensures:
+- ✅ **Valid URL format** with proper protocol (http/https)
+- ✅ **Allowed file extensions** (images: jpg, jpeg, png, gif, webp, svg | videos: mp4, avi, mov, wmv, flv, webm)
+- ✅ **Maximum URL length** (2048 characters by default)
+- ✅ **Security checks** (only http/https protocols allowed)
+
+The frontend should:
+
+1. **Store media files** on a CDN, cloud storage, or file hosting service
+2. **Generate URLs** for the stored files
+3. **Send URLs** to the API instead of file uploads
+4. **Handle media display** by using the returned URLs
+
+### Example Usage
+
+```typescript
+// Creating a game with media URLs
+const gameData = {
+  title: "Cyberpunk 2077",
+  imageUrl: "https://cdn.example.com/games/cyberpunk-2077/main.jpg",
+  heroImageUrl: "https://cdn.example.com/games/cyberpunk-2077/hero.jpg",
+  videoUrl: "https://cdn.example.com/games/cyberpunk-2077/gameplay.mp4",
+  trailerUrl: "https://cdn.example.com/games/cyberpunk-2077/trailer.mp4",
+  // ... other fields
+};
+
+// Updating user profile with avatar
+const profileData = {
+  firstName: "John",
+  lastName: "Doe",
+  avatar: "https://cdn.example.com/avatars/john-doe.jpg",
+  bannerImage: "https://cdn.example.com/banners/john-doe-banner.jpg"
+};
+```
+
+### Validation Configuration
+
+The validation rules are configurable via environment variables:
+
+```typescript
+// src/config/configuration.ts
+media: {
+  allowedImageExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'],
+  allowedVideoExtensions: ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'],
+  maxUrlLength: 2048,
+  cdnBaseUrl: 'https://cdn.example.com'
+}
+```
+
+### Benefits
+
+- ✅ **Simplified Frontend**: No need for file upload handling
+- ✅ **Better Performance**: URLs can be cached and served from CDNs
+- ✅ **Scalability**: Media files can be distributed globally
+- ✅ **Flexibility**: Easy to change media without API changes
+- ✅ **Advanced Validation**: Custom validation ensures data integrity and security
+
 ## Project setup
 
 ```bash
 $ npm install
 ```
-
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

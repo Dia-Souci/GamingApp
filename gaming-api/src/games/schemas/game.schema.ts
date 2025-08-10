@@ -56,6 +56,18 @@ export class Game {
   @Prop()
   videoUrl: string;
 
+  @Prop()
+  trailerUrl: string; // Game trailer video URL
+
+  @Prop([String])
+  galleryImages: string[]; // Additional gallery images
+
+  @Prop()
+  coverImageUrl: string; // Game cover image URL
+
+  @Prop()
+  iconUrl: string; // Game icon/logo URL
+
   // Game Details
   @Prop()
   developer: string;

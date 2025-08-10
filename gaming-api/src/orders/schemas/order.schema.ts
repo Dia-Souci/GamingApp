@@ -29,6 +29,12 @@ export class OrderItem {
   @Prop()
   imageUrl: string;
 
+  @Prop()
+  iconUrl: string; // Game icon/logo URL
+
+  @Prop()
+  coverImageUrl: string; // Game cover image URL
+
   // Digital delivery fields
   @Prop()
   activationKey: string;

@@ -21,22 +21,41 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     private usersService: UsersService,
   ) {
-    const jwtSecret = configService.get<string>('jwt.secret');
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>('jwt.secret') || 'fallback-secret',
+      algorithms: ['HS256'], // Explicitly specify allowed algorithms
+      issuer: configService.get<string>('jwt.issuer') || 'gaming-api',
+      audience: configService.get<string>('jwt.audience') || 'gaming-app',
+    });
+    
+    const jwtSecret = this.configService.get<string>('jwt.secret');
+    const jwtExpiresIn = this.configService.get<string>('jwt.expiresIn');
+    const jwtIssuer = this.configService.get<string>('jwt.issuer');
+    const jwtAudience = this.configService.get<string>('jwt.audience');
+    
+    this.logger.debug('JWT Strategy configuration', {
+      hasSecret: !!jwtSecret,
+      secretLength: jwtSecret?.length,
+      expiresIn: jwtExpiresIn,
+      issuer: jwtIssuer,
+      audience: jwtAudience
+    });
     
     if (!jwtSecret) {
       throw new Error('JWT_SECRET is not configured');
     }
-    
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: jwtSecret,
-      algorithms: ['HS256'], // Explicitly specify allowed algorithms
-    });
   }
 
   async validate(payload: JwtPayload): Promise<UserDocument> {
     try {
+      this.logger.debug('JWT validation started', { 
+        sub: payload.sub, 
+        email: payload.email, 
+        role: payload.role 
+      });
+
       // Validate payload structure
       if (!payload.sub || !payload.email || !payload.role) {
         this.logger.warn('Invalid JWT payload structure', { payload });
@@ -82,7 +101,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Invalid token');
       }
 
-      this.logger.debug('JWT validation successful', { userId: payload.sub, email: payload.email });
+      this.logger.debug('JWT validation successful', { 
+        userId: payload.sub, 
+        email: payload.email, 
+        role: payload.role,
+        userRole: user.role 
+      });
+      
+      // Log the final user object that will be attached to the request
+      this.logger.debug('User object attached to request', { 
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
+      });
+      
       return user;
     } catch (error) {
       if (error instanceof UnauthorizedException) {

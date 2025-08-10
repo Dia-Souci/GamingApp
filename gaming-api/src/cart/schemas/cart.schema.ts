@@ -29,6 +29,12 @@ export class CartItem {
   @Prop()
   imageUrl: string;
 
+  @Prop()
+  iconUrl: string; // Game icon/logo URL
+
+  @Prop()
+  coverImageUrl: string; // Game cover image URL
+
   @Prop({ default: Date.now })
   addedAt: Date;
 }

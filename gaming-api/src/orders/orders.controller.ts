@@ -153,4 +153,54 @@ export class OrdersController {
   async getOrderStats() {
     return this.ordersService.getOrderStats();
   }
+
+  // Debug endpoint to check authentication
+  @Get('debug/auth')
+  @UseGuards(JwtAuthGuard)
+  async debugAuth(@CurrentUser() user: any, @Req() req: any) {
+    return {
+      message: 'Authentication debug info',
+      user: {
+        id: user?._id,
+        email: user?.email,
+        role: user?.role,
+        isActive: user?.isActive
+      },
+      requestUser: req.user,
+      headers: {
+        authorization: req.headers.authorization ? 'Bearer [HIDDEN]' : 'None',
+        'x-session-id': req.headers['x-session-id']
+      }
+    };
+  }
+
+  // Simple test endpoint without guards
+  @Get('debug/public')
+  async debugPublic(@Req() req: any) {
+    return {
+      message: 'Public endpoint - no authentication required',
+      headers: {
+        authorization: req.headers.authorization ? 'Bearer [HIDDEN]' : 'None',
+        'x-session-id': req.headers['x-session-id']
+      },
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Test endpoint with only JWT guard (no role check)
+  @Get('debug/jwt-only')
+  @UseGuards(JwtAuthGuard)
+  async debugJwtOnly(@CurrentUser() user: any, @Req() req: any) {
+    return {
+      message: 'JWT-only endpoint - authentication successful',
+      user: {
+        id: user?._id,
+        email: user?.email,
+        role: user?.role,
+        isActive: user?.isActive
+      },
+      requestUser: req.user,
+      timestamp: new Date().toISOString()
+    };
+  }
 }

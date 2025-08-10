@@ -77,6 +77,8 @@ export class CartService {
         discountedPrice: game.discountedPrice || game.originalPrice,
         discount: game.discount || 0,
         imageUrl: game.imageUrl,
+        iconUrl: game.iconUrl,
+        coverImageUrl: game.coverImageUrl,
         addedAt: new Date(),
       };
 

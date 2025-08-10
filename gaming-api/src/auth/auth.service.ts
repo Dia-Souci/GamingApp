@@ -244,11 +244,27 @@ export class AuthService {
 
   private generateToken(payload: JwtPayload): string {
     const expiresIn = this.configService.get<string>('jwt.expiresIn') || '24h';
+    const issuer = this.configService.get<string>('jwt.issuer') || 'gaming-api';
+    const audience = this.configService.get<string>('jwt.audience') || 'gaming-app';
     
-    return this.jwtService.sign(payload, {
+    this.logger.debug('Generating JWT token', {
+      payload: { sub: payload.sub, email: payload.email, role: payload.role },
       expiresIn,
-      issuer: 'gaming-api',
-      audience: 'gaming-app',
+      issuer,
+      audience
     });
+    
+    const token = this.jwtService.sign(payload, {
+      expiresIn,
+      issuer,
+      audience,
+    });
+    
+    this.logger.debug('JWT token generated successfully', {
+      tokenLength: token.length,
+      payload: { sub: payload.sub, email: payload.email, role: payload.role }
+    });
+    
+    return token;
   }
 }

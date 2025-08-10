@@ -14,12 +14,13 @@ import {
   import { Roles } from '../auth/decorators/roles.decorator';
   import { CurrentUser } from '../auth/decorators/current-user.decorator';
   import { UserDocument } from './schemas/user.schema';
-  
+  import { UpdateProfileDto } from './dto/update-profile.dto';
+
   @Controller('users')
   @UseGuards(JwtAuthGuard)
   export class UsersController {
     constructor(private readonly usersService: UsersService) {}
-  
+
     // GET /api/users (Admin only)
     @Get()
     @UseGuards(RolesGuard)
@@ -27,7 +28,7 @@ import {
     findAll(@Query() query: any) {
       return this.usersService.findAll(query);
     }
-  
+
     // GET /api/users/:id (Admin only)
     @Get(':id')
     @UseGuards(RolesGuard)
@@ -35,13 +36,13 @@ import {
     findOne(@Param('id') id: string) {
       return this.usersService.findById(id);
     }
-  
+
     // PATCH /api/users/profile (Current user only)
     @Patch('profile')
-    updateProfile(@CurrentUser() user: UserDocument, @Body() updateData: any) {
+    updateProfile(@CurrentUser() user: UserDocument, @Body() updateData: UpdateProfileDto) {
       return this.usersService.updateProfile(user._id.toString(), updateData);
     }
-  
+
     // DELETE /api/users/:id (Admin only)
     @Delete(':id')
     @UseGuards(RolesGuard)
