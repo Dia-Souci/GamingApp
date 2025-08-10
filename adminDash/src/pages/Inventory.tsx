@@ -58,11 +58,13 @@ export const Inventory: React.FC = () => {
       
       const gameData = {
         ...formData,
+        slug: formData.slug || apiUtils.generateSlug(formData.title),
         genre: formData.genre.split(',').map(g => g.trim()).filter(Boolean),
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
         discount: formData.discountedPrice > 0 
           ? Math.round(((formData.originalPrice - formData.discountedPrice) / formData.originalPrice) * 100)
           : 0,
+        currency: 'DZD', // Set default currency
       };
 
       const apiCall = game 
@@ -117,9 +119,15 @@ export const Inventory: React.FC = () => {
                 type="text"
                 value={formData.slug}
                 onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                onBlur={(e) => {
+                  if (!e.target.value && formData.title) {
+                    setFormData({ ...formData, slug: apiUtils.generateSlug(formData.title) });
+                  }
+                }}
                 className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors"
-                required
+                placeholder="Auto-generated from title"
               />
+              <p className="text-xs text-[#c4c4c4] mt-1">Leave empty to auto-generate from title</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -161,7 +169,7 @@ export const Inventory: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Original Price ($)</label>
+                <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Original Price (DZD)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -173,7 +181,7 @@ export const Inventory: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Discounted Price ($)</label>
+                <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Discounted Price (DZD)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -451,11 +459,11 @@ export const Inventory: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="text-xl font-bold text-[#ff5100]">
-                      {apiUtils.formatCurrency(game.discountedPrice || game.originalPrice)}
+                      {apiUtils.formatCurrency(game.discountedPrice || game.originalPrice, game.currency || 'DZD')}
                     </span>
                     {game.discountedPrice && game.discountedPrice < game.originalPrice && (
                       <span className="text-sm text-[#c4c4c4] line-through">
-                        {apiUtils.formatCurrency(game.originalPrice)}
+                        {apiUtils.formatCurrency(game.originalPrice, game.currency || 'DZD')}
                       </span>
                     )}
                   </div>
@@ -465,7 +473,7 @@ export const Inventory: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="text-[#c4c4c4] text-sm">
                     <p>Stock: {game.stock}</p>
-                    <p>Views: {game.viewCount}</p>
+                    <p>Views: {game.viewCount || 0}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button
