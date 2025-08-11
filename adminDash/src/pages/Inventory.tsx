@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Edit, Trash2, Upload, AlertTriangle, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { StatusBadge } from '../components/UI/StatusBadge';
@@ -72,6 +72,8 @@ export const Inventory: React.FC = () => {
           ? Math.round(((formData.originalPrice - formData.discountedPrice) / formData.originalPrice) * 100)
           : 0,
         currency: 'DZD', // Set default currency
+        imageUrl: formData.imageUrl || undefined,
+        videoUrl: formData.videoUrl || undefined,
       };
 
       const apiCall = game 
@@ -260,12 +262,27 @@ export const Inventory: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Game Image</label>
-              <div className="border-2 border-dashed border-[#3a3f45] rounded-lg p-6 text-center hover:border-[#ff5100] transition-colors">
-                <Upload className="w-8 h-8 text-[#c4c4c4] mx-auto mb-2" />
-                <p className="text-[#c4c4c4] text-sm">Drag and drop an image, or click to select</p>
-                <input type="file" accept="image/*" className="hidden" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Image URL</label>
+                <input
+                  type="url"
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Video URL</label>
+                <input
+                  type="url"
+                  value={formData.videoUrl}
+                  onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                  className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors"
+                  placeholder="https://example.com/video.mp4"
+                />
               </div>
             </div>
 
