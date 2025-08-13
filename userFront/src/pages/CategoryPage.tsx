@@ -38,33 +38,47 @@ const platformConfig = {
 const CategoryPage: React.FC = () => {
   const { platform } = useParams<{ platform: string }>();
   const {
-    filteredGames,
+    games,
     currentPage,
     searchQuery,
+    selectedPlatform,
     isLoading,
+    error,
+    totalPages,
+    totalGames,
     setSelectedPlatform,
     setCurrentPage,
     setSearchQuery,
-    getPaginatedGames,
-    getTotalPages
+    fetchGames,
+    resetFilters
   } = useGameStore();
 
   // Validate platform parameter
   if (!platform || !platformConfig[platform as keyof typeof platformConfig]) {
-    return <Navigate to="/\" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const config = platformConfig[platform as keyof typeof platformConfig];
   const Icon = config.icon;
-  const paginatedGames = getPaginatedGames();
-  const totalPages = getTotalPages();
 
+  // Fetch games when platform changes
   useEffect(() => {
     setSelectedPlatform(platform);
-    
-    // Scroll to top when page changes
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [platform, setSelectedPlatform]);
+    const filters: any = { platform };
+    if (searchQuery) filters.q = searchQuery;
+    fetchGames(1, filters);
+  }, [platform, setSelectedPlatform, fetchGames]);
+
+  // Fetch games when search query changes
+  useEffect(() => {
+    if (searchQuery) {
+      const filters: any = { platform, q: searchQuery };
+      fetchGames(1, filters);
+    } else if (selectedPlatform) {
+      const filters: any = { platform };
+      fetchGames(1, filters);
+    }
+  }, [searchQuery, platform, selectedPlatform, fetchGames]);
 
   useEffect(() => {
     // Scroll to top when page changes
@@ -77,12 +91,22 @@ const CategoryPage: React.FC = () => {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    const filters: any = { platform };
+    if (searchQuery) filters.q = searchQuery;
+    fetchGames(page, filters);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    resetFilters();
+    const filters: any = { platform };
+    fetchGames(1, filters);
   };
 
   return (
     <>
       <Helmet>
-        <title>{config.name} - InstantGaming</title>
+        <title>{config.name} - RedHawk Gaming</title>
         <meta name="description" content={config.description} />
       </Helmet>
 
@@ -115,12 +139,10 @@ const CategoryPage: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="text-[#DDDDDD]">
                 {searchQuery ? (
-                  filteredGames.length > 0 ? (
+                  totalGames > 0 ? (
                     <span>
-                      Found <span className="text-white font-semibold">{filteredGames.length}</span> results 
-                      {searchQuery && (
-                        <span> for "<span className="text-[#FF6600]">{searchQuery}</span>"</span>
-                      )}
+                      Found <span className="text-white font-semibold">{totalGames}</span> results 
+                      for "<span className="text-[#FF6600]">{searchQuery}</span>"
                     </span>
                   ) : (
                     <span className="text-red-400">
@@ -129,7 +151,7 @@ const CategoryPage: React.FC = () => {
                   )
                 ) : (
                   <span>
-                    Showing <span className="text-white font-semibold">{filteredGames.length}</span> games
+                    Showing <span className="text-white font-semibold">{totalGames}</span> games
                   </span>
                 )}
               </div>
@@ -146,9 +168,27 @@ const CategoryPage: React.FC = () => {
         {/* Games Grid */}
         <section className="bg-[#1E1E1E] pb-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {error && (
+              <div className="text-center py-8">
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                  <p className="text-red-400">{error}</p>
+                  <button
+                    onClick={() => {
+                      const filters: any = { platform };
+                      if (searchQuery) filters.q = searchQuery;
+                      fetchGames(1, filters);
+                    }}
+                    className="mt-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            )}
+            
             {isLoading ? (
               <LoadingSkeleton count={30} />
-            ) : filteredGames.length === 0 ? (
+            ) : (!games || games.length === 0) ? (
               <div className="text-center py-16">
                 <div className="w-24 h-24 bg-[#2C2C2C] rounded-full flex items-center justify-center mx-auto mb-6">
                   <Icon className="w-12 h-12 text-[#DDDDDD]" />
@@ -162,7 +202,7 @@ const CategoryPage: React.FC = () => {
                 </p>
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={handleClearSearch}
                     className="bg-[#FF6600] hover:bg-[#e55a00] text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200"
                   >
                     Clear Search
@@ -171,8 +211,8 @@ const CategoryPage: React.FC = () => {
               </div>
             ) : (
               <>
+                <GameGrid games={games} />
                 
-                  <GameGrid  games={paginatedGames} />
                 {/* Pagination */}
                 {totalPages > 1 && (
                   <Pagination

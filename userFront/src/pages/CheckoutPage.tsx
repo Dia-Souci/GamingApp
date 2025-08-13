@@ -102,7 +102,7 @@ const CheckoutPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-white font-medium text-sm">
-                          ${(item.discountedPrice * item.quantity).toFixed(2)}
+                          {(item.discountedPrice * item.quantity).toFixed(2)} DZD
                         </p>
                       </div>
                     </div>
@@ -113,20 +113,20 @@ const CheckoutPage: React.FC = () => {
                 <div className="space-y-3 mb-6 pt-4 border-t border-[#1E1E1E]">
                   <div className="flex justify-between text-[#DDDDDD]">
                     <span>Official price</span>
-                    <span>${originalTotal.toFixed(2)}</span>
+                    <span>{originalTotal.toFixed(2)} DZD</span>
                   </div>
                   
                   {totalDiscount > 0 && (
                     <div className="flex justify-between text-[#DDDDDD]">
                       <span>Discount</span>
-                      <span className="text-green-400">-${totalDiscount.toFixed(2)}</span>
+                      <span className="text-green-400">-{totalDiscount.toFixed(2)} DZD</span>
                     </div>
                   )}
                   
                   <div className="border-t border-[#1E1E1E] pt-3">
                     <div className="flex justify-between text-white text-xl font-bold">
                       <span>Total</span>
-                      <span>${totalPrice.toFixed(2)}</span>
+                      <span>{totalPrice.toFixed(2)} DZD</span>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { apiUtils } from '../services/api';
 
 export interface CartItem {
   id: string;
@@ -14,6 +15,7 @@ export interface CartItem {
 
 interface CartStore {
   items: CartItem[];
+  sessionId: string | null;
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -22,12 +24,15 @@ interface CartStore {
   getTotalPrice: () => number;
   getOriginalTotal: () => number;
   getTotalDiscount: () => number;
+  initializeSession: () => void;
+  getSessionId: () => string;
 }
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+      sessionId: null,
       
       addToCart: (item) => {
         const { items } = get();
@@ -86,10 +91,31 @@ export const useCartStore = create<CartStore>()(
       getTotalDiscount: () => {
         const { getOriginalTotal, getTotalPrice } = get();
         return getOriginalTotal() - getTotalPrice();
+      },
+
+      initializeSession: () => {
+        const { sessionId } = get();
+        if (!sessionId) {
+          const newSessionId = apiUtils.generateSessionId();
+          set({ sessionId: newSessionId });
+        }
+      },
+
+      getSessionId: () => {
+        const { sessionId, initializeSession } = get();
+        if (!sessionId) {
+          initializeSession();
+          return get().sessionId!;
+        }
+        return sessionId;
       }
     }),
     {
-      name: 'cart-storage'
+      name: 'cart-storage',
+      partialize: (state) => ({
+        items: state.items,
+        sessionId: state.sessionId,
+      }),
     }
   )
 );

@@ -16,11 +16,12 @@ export class GamesService {
   }
 
   // Get all games with optional filtering
-  async findAll(query: any = {}): Promise<Game[]> {
+  async findAll(query: any = {}): Promise<{ data: any[]; pagination: any }> {
     const {
       platform,
       genre,
       search,
+      q, // Add support for 'q' parameter (frontend sends this)
       featured,
       status = 'active',
       page = 1,
@@ -44,20 +45,39 @@ export class GamesService {
       filter.featured = featured === 'true';
     }
 
-    if (search) {
-      filter.$text = { $search: search };
+    // Handle both 'search' and 'q' parameters for search
+    const searchTerm = search || q;
+    if (searchTerm) {
+      filter.$text = { $search: searchTerm };
     }
 
     // Calculate pagination
     const skip = (page - 1) * limit;
     const sortOrder = order === 'desc' ? -1 : 1;
 
-    return this.gameModel
+    // Get total count for pagination
+    const total = await this.gameModel.countDocuments(filter);
+
+    // Get games with pagination
+    const games = await this.gameModel
       .find(filter)
       .sort({ [sort]: sortOrder })
       .skip(skip)
       .limit(Number(limit))
       .exec();
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: games,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages
+      }
+    };
   }
 
   // Get a single game by ID
@@ -132,22 +152,114 @@ export class GamesService {
       .exec();
   }
   // Add this method to your existing GamesService
-async updateStock(gameId: string, newStock: number): Promise<void> {
-  const game = await this.gameModel.findById(gameId);
-  
-  if (!game) {
-    throw new NotFoundException('Game not found');
+  async updateStock(gameId: string, newStock: number): Promise<void> {
+    const game = await this.gameModel.findById(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    game.stock = newStock;
+    
+    // Update status based on stock
+    if (newStock <= 0) {
+      game.status = 'out_of_stock';
+    } else if (game.status === 'out_of_stock' && newStock > 0) {
+      game.status = 'active';
+    }
+
+    await game.save();
   }
 
-  game.stock = newStock;
-  
-  // Update status based on stock
-  if (newStock <= 0) {
-    game.status = 'out_of_stock';
-  } else if (game.status === 'out_of_stock' && newStock > 0) {
-    game.status = 'active';
+  // Mark activation key as used
+  async markActivationKeyAsUsed(gameId: string, activationKey: string): Promise<void> {
+    const game = await this.gameModel.findById(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    if (!game.activationKeys || game.activationKeys.length === 0) {
+      throw new NotFoundException('No activation keys found for this game');
+    }
+
+    const keyIndex = game.activationKeys.findIndex(key => key.key === activationKey);
+    
+    if (keyIndex === -1) {
+      throw new NotFoundException('Activation key not found');
+    }
+
+    if (game.activationKeys[keyIndex].isUsed) {
+      throw new Error('Activation key is already used');
+    }
+
+    // Mark the key as used
+    game.activationKeys[keyIndex].isUsed = true;
+    game.activationKeys[keyIndex].usedAt = new Date();
+
+    await game.save();
   }
 
-  await game.save();
-}
+  // Get available activation keys for a game
+  async getAvailableActivationKeys(gameId: string): Promise<string[]> {
+    const game = await this.gameModel.findById(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    if (!game.activationKeys || game.activationKeys.length === 0) {
+      return [];
+    }
+
+    return game.activationKeys
+      .filter(key => !key.isUsed)
+      .map(key => key.key);
+  }
+
+  // Get a single available activation key for assignment
+  async getAvailableActivationKey(gameId: string): Promise<{ key: string; addedAt: Date } | null> {
+    const game = await this.gameModel.findById(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    if (!game.activationKeys || game.activationKeys.length === 0) {
+      return null;
+    }
+
+    const availableKey = game.activationKeys.find(key => !key.isUsed);
+    
+    if (!availableKey) {
+      return null;
+    }
+
+    return {
+      key: availableKey.key,
+      addedAt: availableKey.addedAt,
+    };
+  }
+
+  // Add activation keys to a game
+  async addActivationKeys(gameId: string, keys: string[]): Promise<void> {
+    const game = await this.gameModel.findById(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    if (!game.activationKeys) {
+      game.activationKeys = [];
+    }
+
+    const newKeys = keys.map(key => ({
+      key,
+      isUsed: false,
+      addedAt: new Date(),
+    }));
+
+    game.activationKeys.push(...newKeys);
+    await game.save();
+  }
 }

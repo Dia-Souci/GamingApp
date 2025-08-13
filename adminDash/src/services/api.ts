@@ -181,6 +181,35 @@ export interface DashboardStats {
   totalRevenue: number;
 }
 
+// Payment Types
+export interface PaymentInfo {
+  method: string;
+  transactionId: string;
+  paymentGateway: string;
+  paidAt: Date;
+}
+
+export interface CheckoutSession {
+  id: string;
+  url: string;
+  expires_at: string;
+  status: string;
+  metadata?: {
+    orderNumber: string;
+    orderId: string;
+    guestToken: string;
+    customerId: string;
+  };
+}
+
+export interface RefundInfo {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
 // Create axios instance
 const createApiInstance = (): AxiosInstance => {
   const instance = axios.create({
@@ -231,8 +260,8 @@ const createApiInstance = (): AxiosInstance => {
 
       if (error.response) {
         apiError.status = error.response.status;
-        apiError.message = (error.response.data as any)?.message || error.message;
-        apiError.errors = (error.response.data as any)?.errors;
+        apiError.message = (error.response.data as { message?: string })?.message || error.message;
+        apiError.errors = (error.response.data as { errors?: Record<string, string[]> })?.errors;
 
         // Handle authentication errors
         if (error.response.status === 401) {
@@ -362,6 +391,25 @@ export const gamesService = {
     const response = await api.patch(`/games/${id}`, { stock });
     return response.data;
   },
+
+  // Activation Key Management
+  getActivationKeys: async (id: string): Promise<Array<{
+    key: string;
+    isUsed: boolean;
+    addedAt: Date;
+    usedAt?: Date;
+  }>> => {
+    const response = await api.get(`/games/${id}/activation-keys`);
+    return response.data;
+  },
+
+  addActivationKeys: async (id: string, keys: string[]): Promise<void> => {
+    await api.post(`/games/${id}/activation-keys`, { keys });
+  },
+
+  markKeyAsUsed: async (id: string, key: string): Promise<void> => {
+    await api.patch(`/games/${id}/activation-keys/${key}/use`);
+  },
 };
 
 // Orders Service
@@ -437,6 +485,24 @@ export const ordersService = {
       total: response.data.total || 0,
     };
   },
+
+  // NEW: Get single order by order number
+  getOne: async (orderNumber: string): Promise<Order> => {
+    const response = await api.get(`/orders/admin/${orderNumber}`);
+    return response.data;
+  },
+
+  // NEW: Manual payment confirmation (for development/testing)
+  confirmPayment: async (orderNumber: string): Promise<Order> => {
+    const response = await api.post(`/orders/admin/${orderNumber}/confirm-payment`);
+    return response.data.order;
+  },
+
+  // NEW: Assign activation keys and deliver order (for manual flow)
+  assignActivationKeysAndDeliver: async (orderNumber: string): Promise<Order> => {
+    const response = await api.post(`/orders/admin/${orderNumber}/assign-keys-and-deliver`);
+    return response.data.order;
+  },
 };
 
 // Users Service
@@ -492,9 +558,10 @@ export const analyticsService = {
     try {
       const response = await api.get('/orders/admin/stats');
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as { status?: number };
       // Handle 401 errors gracefully without triggering redirect
-      if (error.status === 401) {
+      if (apiError.status === 401) {
         console.warn('Unauthorized access to analytics, using mock data');
         return {
           totalOrders: 0,
@@ -523,9 +590,10 @@ export const analyticsService = {
     try {
       const response = await api.get('/analytics/revenue', { params: { period } });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const apiError = error as { status?: number };
       // Handle 401 errors gracefully without triggering redirect
-      if (error.status === 401) {
+      if (apiError.status === 401) {
         console.warn('Unauthorized access to revenue analytics, using mock data');
         return [
           { name: 'Jan', revenue: 12000 },
@@ -547,6 +615,55 @@ export const analyticsService = {
         { name: 'Jun', revenue: 18500 }
       ];
     }
+  },
+};
+
+// Payment Service
+export const paymentService = {
+  // Get payment information for an order
+  getPaymentInfo: async (orderNumber: string): Promise<PaymentInfo | null> => {
+    try {
+      const response = await api.get(`/payment/order/${orderNumber}/info`);
+      return response.data;
+    } catch (error: unknown) {
+      const apiError = error as { status?: number };
+      if (apiError.status === 404) {
+        return null; // No payment info found
+      }
+      throw error;
+    }
+  },
+
+  // Get checkout session details
+  getCheckoutSession: async (checkoutId: string): Promise<CheckoutSession> => {
+    const response = await api.get(`/payment/checkout/${checkoutId}`);
+    return response.data;
+  },
+
+  // Process refund
+  processRefund: async (checkoutId: string, amount?: number): Promise<RefundInfo> => {
+    const response = await api.post(`/payment/refund/${checkoutId}`, {
+      amount: amount ? Math.round(amount * 100) : undefined, // Convert to cents
+    });
+    return response.data;
+  },
+
+  // Get payment health status
+  getHealth: async (): Promise<{ status: string; timestamp: string }> => {
+    const response = await api.get('/payment/health');
+    return response.data;
+  },
+
+  // Get payment statistics
+  getPaymentStats: async (): Promise<{
+    totalPayments: number;
+    successfulPayments: number;
+    failedPayments: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+  }> => {
+    const response = await api.get('/payment/stats');
+    return response.data;
   },
 };
 
@@ -607,5 +724,6 @@ export default {
   usersService,
   cartService,
   analyticsService,
+  paymentService,
   apiUtils,
 };

@@ -9,7 +9,7 @@ const mockDelay = (ms: number = 1000) => new Promise(resolve => setTimeout(resol
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 // Mock orders storage
-let mockOrders: Order[] = [];
+const mockOrders: Order[] = [];
 let orderIdCounter = 1;
 
 // Mock implementation

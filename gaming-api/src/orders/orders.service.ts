@@ -7,6 +7,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CartService } from '../cart/cart.service';
 import { GamesService } from '../games/games.service';
 import { v4 as uuidv4 } from 'uuid';
+import { OrderItem } from './schemas/order.schema';
 
 @Injectable()
 export class OrdersService {
@@ -304,5 +305,81 @@ export class OrdersService {
       guestOrders,
       totalRevenue: totalRevenue[0]?.total || 0,
     };
+  }
+
+  // NEW: Assign activation keys and mark order as delivered (for manual flow)
+  async assignActivationKeysAndDeliver(orderNumber: string): Promise<OrderDocument> {
+    const order = await this.findOne(orderNumber);
+
+    // Check if order is paid
+    if (order.paymentStatus !== 'paid') {
+      throw new BadRequestException('Cannot assign keys to unpaid order');
+    }
+
+    // Check if order is already delivered
+    if (order.status === 'delivered') {
+      throw new BadRequestException('Order is already delivered');
+    }
+
+    // Get activation keys for each game
+    const updatedItems: OrderItem[] = [];
+    for (const item of order.items) {
+      try {
+        // Get available activation key for this game
+        const activationKey = await this.gamesService.getAvailableActivationKey(item.gameId.toString());
+        
+        if (!activationKey) {
+          throw new BadRequestException(`No activation keys available for game: ${item.title}`);
+        }
+
+        updatedItems.push({
+          ...item,
+          activationKey: activationKey.key,
+          keyDelivered: true,
+          keyDeliveredAt: new Date(),
+        });
+
+        // Mark the activation key as used
+        await this.gamesService.markActivationKeyAsUsed(item.gameId.toString(), activationKey.key);
+      } catch (error) {
+        throw new BadRequestException(`Failed to assign activation key for ${item.title}: ${error.message}`);
+      }
+    }
+
+    // Update order with activation keys and delivered status
+    order.items = updatedItems;
+    order.status = 'delivered';
+    order.paymentStatus = 'paid';
+
+    // Add timeline entry
+    order.timeline.push({
+      status: 'delivered',
+      timestamp: new Date(),
+      note: 'Activation keys assigned and order delivered',
+      updatedBySystem: 'admin',
+    });
+
+    return await order.save();
+  }
+
+  // NEW: Manual payment confirmation (for development/testing)
+  async confirmPayment(orderNumber: string): Promise<OrderDocument> {
+    const order = await this.findOne(orderNumber);
+
+    if (order.paymentStatus === 'paid') {
+      throw new BadRequestException('Order is already paid');
+    }
+
+    order.paymentStatus = 'paid';
+
+    // Add timeline entry
+    order.timeline.push({
+      status: order.status,
+      timestamp: new Date(),
+      note: 'Payment confirmed manually (development mode)',
+      updatedBySystem: 'admin',
+    });
+
+    return await order.save();
   }
 }

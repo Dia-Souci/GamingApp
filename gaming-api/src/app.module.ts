@@ -10,6 +10,8 @@ import { AuthModule } from './auth/auth.module'; // Add this
 import { UsersModule } from './users/users.module'; // Add this
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentModule } from './payment/payment.module';
+import { WebsiteSettingsModule } from './website-settings/website-settings.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -25,7 +27,7 @@ import configuration from './config/configuration';
     }]),
     AuthModule, // Add this
     UsersModule, // Add this
-    GamesModule, CartModule, OrdersModule,
+    GamesModule, CartModule, OrdersModule, PaymentModule, WebsiteSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

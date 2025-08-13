@@ -17,14 +17,15 @@ const GameGrid: React.FC<GameGridProps> = ({ games }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-12 px-4">
         {games.map((game) => (
           <GameCard
-            key={game.id}
-            id={game.id}
+            key={game._id}
+            _id={game._id}
             title={game.title}
             originalPrice={game.originalPrice}
             discountedPrice={game.discountedPrice}
             discount={game.discount}
             platform={game.platform}
             imageUrl={game.imageUrl}
+            videoUrl={game.videoUrl}
           />
         ))}
       </div>

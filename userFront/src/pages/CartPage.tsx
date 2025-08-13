@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Trash2, ShoppingCart, ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
+import CartDebug from '../components/CartDebug';
 
 const CartPage: React.FC = () => {
   const { 
@@ -80,6 +81,9 @@ const CartPage: React.FC = () => {
       
       <div className="min-h-screen bg-[#1E1E1E] pt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* Debug Component - Remove this after testing */}
+          <CartDebug />
+          
           {/* Progress Steps */}
           <div className="flex items-center justify-center mb-12">
             <div className="flex items-center space-x-8">
@@ -157,11 +161,11 @@ const CartPage: React.FC = () => {
                         {/* Price */}
                         <div className="text-right">
                           <div className="text-xl font-bold text-white">
-                            ${(item.discountedPrice * item.quantity).toFixed(2)}
+                            {(item.discountedPrice * item.quantity).toFixed(2)} DZD
                           </div>
                           {item.discount > 0 && (
                             <div className="text-sm text-[#DDDDDD] line-through">
-                              ${(item.originalPrice * item.quantity).toFixed(2)}
+                              {(item.originalPrice * item.quantity).toFixed(2)} DZD
                             </div>
                           )}
                         </div>
@@ -189,20 +193,20 @@ const CartPage: React.FC = () => {
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between text-[#DDDDDD]">
                     <span>Official price</span>
-                    <span>${originalTotal.toFixed(2)}</span>
+                    <span>{originalTotal.toFixed(2)} DZD</span>
                   </div>
                   
                   {totalDiscount > 0 && (
                     <div className="flex justify-between text-[#DDDDDD]">
                       <span>Discount</span>
-                      <span className="text-green-400">-${totalDiscount.toFixed(2)}</span>
+                      <span className="text-green-400">-{totalDiscount.toFixed(2)} DZD</span>
                     </div>
                   )}
                   
                   <div className="border-t border-[#1E1E1E] pt-4">
                     <div className="flex justify-between text-white text-xl font-bold">
                       <span>Subtotal</span>
-                      <span>${totalPrice.toFixed(2)}</span>
+                      <span>{totalPrice.toFixed(2)} DZD</span>
                     </div>
                   </div>
                 </div>

@@ -1,57 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, X, Gamepad2, ShoppingCart ,Monitor, Gamepad, Zap } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
 import { useGameStore } from '../store/gameStore';
+import { websiteSettingsApi, type WebsiteSettings } from '../services/websiteSettingsApi';
 
-const categories = [
-  { 
+const categoryConfig = {
+  all: { 
     id: 'all', 
     name: 'All Games', 
     path: '/', 
     icon: Zap,
     color: 'from-purple-500 to-pink-500'
   },
-  { 
+  pc: { 
     id: 'pc', 
     name: 'PC Games', 
     path: '/category/pc', 
     icon: Monitor,
     color: 'from-blue-500 to-cyan-500'
   },
-  { 
+  playstation: { 
     id: 'playstation', 
     name: 'PlayStation', 
     path: '/category/playstation', 
     icon: Gamepad2,
     color: 'from-blue-600 to-blue-800'
   },
-  { 
+  xbox: { 
     id: 'xbox', 
     name: 'Xbox', 
     path: '/category/xbox', 
     icon: Gamepad,
     color: 'from-green-500 to-green-700'
   },
-  { 
+  nintendo: { 
     id: 'nintendo', 
     name: 'Nintendo', 
     path: '/category/nintendo', 
     icon: Gamepad2,
     color: 'from-red-500 to-red-700'
   }
-];
+};
  
 const Header: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { setSearchQuery } = useGameStore();
+  const { setSearchQuery, resetFilters } = useGameStore();
+  const [settings, setSettings] = useState<WebsiteSettings | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const isActive = (path: string) => {
     if (path === '/') {
       return location.pathname === '/';
     }
     return location.pathname === path;
+  };
+
+  const handleAllGamesClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resetFilters();
+    navigate('/');
   };
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -62,6 +72,29 @@ const Header: React.FC = () => {
   
   const getTotalItems = useCartStore(state => state.getTotalItems);
   const totalItems = getTotalItems();
+
+  // Load website settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const data = await websiteSettingsApi.getSettings();
+        setSettings(data);
+      } catch (error) {
+        console.error('Failed to load website settings:', error);
+        // Use default settings if API fails
+        setSettings({
+          name: 'main',
+          heroImageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&h=600&fit=crop',
+          displayedCategories: ['pc', 'playstation', 'xbox', 'nintendo'],
+          isActive: true,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   // Sync search query with URL params
   useEffect(() => {
@@ -157,6 +190,24 @@ const Header: React.FC = () => {
     }
   };
 
+  // Get displayed categories based on settings
+  const getDisplayedCategories = () => {
+    if (!settings || loading) {
+      return [categoryConfig.all, categoryConfig.pc, categoryConfig.playstation, categoryConfig.xbox, categoryConfig.nintendo];
+    }
+
+    const categories = [categoryConfig.all];
+    settings.displayedCategories.forEach(category => {
+      if (categoryConfig[category as keyof typeof categoryConfig]) {
+        categories.push(categoryConfig[category as keyof typeof categoryConfig]);
+      }
+    });
+
+    return categories;
+  };
+
+  const displayedCategories = getDisplayedCategories();
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
       <div 
@@ -218,9 +269,26 @@ const Header: React.FC = () => {
                 </div>
               ) : (
                 <nav className="hidden md:flex items-center space-x-8">
-                  {categories.map((category) => {
+                  {displayedCategories.map((category) => {
                     const Icon = category.icon;
                     const active = isActive(category.path);
+                    
+                    if (category.id === 'all') {
+                      return (
+                        <button
+                          key={category.id}
+                          onClick={handleAllGamesClick}
+                          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 whitespace-nowrap ${
+                            active
+                              ? `bg-gradient-to-r ${category.color} text-white shadow-lg transform scale-105`
+                              : 'text-[#DDDDDD] hover:text-white hover:bg-[#3a3a3a]'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{category.name}</span>
+                        </button>
+                      );
+                    }
                     
                     return (
                       <Link

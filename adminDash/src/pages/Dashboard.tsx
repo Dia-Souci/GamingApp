@@ -4,7 +4,7 @@ import { TrendingUp, ShoppingCart, Package, AlertTriangle, Users, DollarSign } f
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { Card } from '../components/UI/Card';
 import { useApi } from '../hooks/useApi';
-import { analyticsService, apiUtils } from '../services/api';
+import { analyticsService, paymentService, apiUtils } from '../services/api';
 
 const StatCard: React.FC<{
   title: string;
@@ -41,6 +41,11 @@ export const Dashboard: React.FC = () => {
 
   const { data: revenueData, loading: revenueLoading } = useApi(
     () => analyticsService.getRevenueData('month'),
+    []
+  );
+
+  const { data: paymentStats } = useApi(
+    () => paymentService.getPaymentStats(),
     []
   );
 /*
@@ -130,6 +135,41 @@ export const Dashboard: React.FC = () => {
           color="bg-gradient-to-br from-yellow-500 to-yellow-600"
         />
       </motion.div>
+
+      {/* Payment Statistics */}
+      {paymentStats && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          <StatCard
+            title="Total Payments"
+            value={paymentStats.totalPayments || 0}
+            icon={<DollarSign className="w-6 h-6 text-white" />}
+            color="bg-gradient-to-br from-purple-500 to-purple-600"
+          />
+          <StatCard
+            title="Successful Payments"
+            value={paymentStats.successfulPayments || 0}
+            icon={<TrendingUp className="w-6 h-6 text-white" />}
+            color="bg-gradient-to-br from-green-500 to-green-600"
+          />
+          <StatCard
+            title="Failed Payments"
+            value={paymentStats.failedPayments || 0}
+            icon={<AlertTriangle className="w-6 h-6 text-white" />}
+            color="bg-gradient-to-br from-red-500 to-red-600"
+          />
+          <StatCard
+            title="Avg Order Value"
+            value={apiUtils.formatCurrency(paymentStats.averageOrderValue || 0, 'DZD')}
+            icon={<DollarSign className="w-6 h-6 text-white" />}
+            color="bg-gradient-to-br from-blue-500 to-blue-600"
+          />
+        </motion.div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Phone, Mail, MapPin, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { WILAYAS } from '../data/wilayas';
-import { OrderFormData } from '../types/order';
+import { OrderFormData, CreateOrderRequest } from '../types/order';
 import { useCartStore } from '../store/cartStore';
-import { api } from '../services/api';
+import { orderService, paymentService, cartService, apiUtils } from '../services/api';
 
 interface FormErrors {
   fullName?: string;
@@ -15,14 +15,17 @@ interface FormErrors {
 
 const OrderForm: React.FC = () => {
   const navigate = useNavigate();
-  const { items, getTotalPrice, clearCart } = useCartStore();
+  const { items, getTotalPrice, clearCart, getSessionId } = useCartStore();
   
   const [formData, setFormData] = useState<OrderFormData>({
-    fullName: '',
-    phoneNumber: '',
-    email: '',
-    wilaya: '',
-    extraInfo: ''
+    customer: {
+      fullName: '',
+      email: '',
+      phoneNumber: '',
+      wilaya: '',
+      wilayaName: '',
+      extraInfo: ''
+    }
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -46,7 +49,7 @@ const OrderForm: React.FC = () => {
   };
 
   const validateEmail = (email: string): string | undefined => {
-    if (!email.trim()) return undefined; // Email is optional
+    if (!email.trim()) return 'Email is required';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) return 'Please enter a valid email address';
     return undefined;
@@ -58,8 +61,14 @@ const OrderForm: React.FC = () => {
   };
 
   // Handle input changes
-  const handleInputChange = (field: keyof OrderFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof OrderFormData['customer'], value: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      customer: { 
+        ...prev.customer, 
+        [field]: value 
+      } 
+    }));
     
     // Clear error when user starts typing
     if (errors[field as keyof FormErrors]) {
@@ -68,14 +77,32 @@ const OrderForm: React.FC = () => {
     setSubmitError('');
   };
 
+  // Handle wilaya change
+  const handleWilayaChange = (wilayaCode: string) => {
+    const wilaya = WILAYAS.find(w => w.code === wilayaCode);
+    setFormData(prev => ({ 
+      ...prev, 
+      customer: { 
+        ...prev.customer, 
+        wilaya: wilayaCode,
+        wilayaName: wilaya?.name || ''
+      } 
+    }));
+    
+    if (errors.wilaya) {
+      setErrors(prev => ({ ...prev, wilaya: undefined }));
+    }
+    setSubmitError('');
+  };
+
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    newErrors.fullName = validateFullName(formData.fullName);
-    newErrors.phoneNumber = validatePhoneNumber(formData.phoneNumber);
-    newErrors.email = validateEmail(formData.email || '');
-    newErrors.wilaya = validateWilaya(formData.wilaya);
+    newErrors.fullName = validateFullName(formData.customer.fullName);
+    newErrors.phoneNumber = validatePhoneNumber(formData.customer.phoneNumber);
+    newErrors.email = validateEmail(formData.customer.email);
+    newErrors.wilaya = validateWilaya(formData.customer.wilaya);
 
     setErrors(newErrors);
     return !Object.values(newErrors).some(error => error);
@@ -96,16 +123,71 @@ const OrderForm: React.FC = () => {
     setSubmitError('');
 
     try {
-      const order = await api.submitOrder(formData, items, getTotalPrice());
+      const sessionId = getSessionId();
       
-      // Clear cart after successful order
+      // First, sync cart items with backend session cart
+      console.log('Syncing cart items to backend:', items);
+      for (const item of items) {
+        try {
+          console.log('Adding item to backend cart:', { gameId: item.id, platform: item.platform, quantity: item.quantity });
+          await cartService.addToCart(sessionId, item.id, item.platform, item.quantity);
+          console.log('Successfully added item to backend cart');
+        } catch (error) {
+          console.error('Failed to sync cart item:', error);
+          // Show error to user but continue
+          setSubmitError(`Failed to sync cart item: ${error.message}`);
+          return; // Stop the process if cart sync fails
+        }
+      }
+      
+      // Verify cart was synced by fetching it
+      try {
+        const backendCart = await cartService.getCart(sessionId);
+        console.log('Backend cart after sync:', backendCart);
+        if (!backendCart.items || backendCart.items.length === 0) {
+          setSubmitError('Cart sync failed - no items found in backend cart');
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to verify cart sync:', error);
+        setSubmitError('Failed to verify cart sync');
+        return;
+      }
+      
+      // Create order request - backend expects customer fields at root level
+      // Items come from session cart, not request body
+      const orderRequest = {
+        // Customer fields at root level (not nested)
+        email: formData.customer.email,
+        fullName: formData.customer.fullName,
+        phoneNumber: formData.customer.phoneNumber,
+        wilaya: formData.customer.wilaya,
+        wilayaName: formData.customer.wilayaName,
+        address: formData.customer.address || '',
+        extraInfo: formData.customer.extraInfo || ''
+        // Note: items, totalAmount, currency come from session cart
+      };
+
+      // Initiate payment
+      const successUrl = `${window.location.origin}/payment/success`;
+      const failureUrl = `${window.location.origin}/payment/failure`;
+      
+      const paymentResult = await paymentService.initiatePayment(
+        orderRequest,
+        sessionId,
+        successUrl,
+        failureUrl
+      );
+
+      // Clear cart after successful payment initiation
       clearCart();
       
-      // Redirect to confirmation page with order ID
-      navigate(`/order-confirmation/${order.id}`);
-    } catch (error) {
-      console.error('Order submission failed:', error);
-      setSubmitError(error instanceof Error ? error.message : 'Failed to place order. Please try again.');
+      // Redirect to payment page
+      window.location.href = paymentResult.checkout.url;
+      
+    } catch (error: any) {
+      console.error('Payment initiation failed:', error);
+      setSubmitError(error.message || 'Failed to initiate payment. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +216,7 @@ const OrderForm: React.FC = () => {
               <input
                 type="text"
                 id="fullName"
-                value={formData.fullName}
+                value={formData.customer.fullName}
                 onChange={(e) => handleInputChange('fullName', e.target.value)}
                 className={`w-full pl-10 pr-4 py-3 bg-[#1E1E1E] border rounded-lg text-white placeholder-[#DDDDDD]/60 focus:outline-none focus:ring-2 transition-all duration-200 ${
                   errors.fullName 
@@ -159,7 +241,7 @@ const OrderForm: React.FC = () => {
               <input
                 type="tel"
                 id="phoneNumber"
-                value={formData.phoneNumber}
+                value={formData.customer.phoneNumber}
                 onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
                 className={`w-full pl-10 pr-4 py-3 bg-[#1E1E1E] border rounded-lg text-white placeholder-[#DDDDDD]/60 focus:outline-none focus:ring-2 transition-all duration-200 ${
                   errors.phoneNumber 
@@ -174,17 +256,17 @@ const OrderForm: React.FC = () => {
             )}
           </div>
 
-          {/* Email (Optional) */}
+          {/* Email */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-[#DDDDDD] mb-2">
-              Email Address <span className="text-[#DDDDDD]/60">(optional)</span>
+              Email Address *
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#DDDDDD]" />
               <input
                 type="email"
                 id="email"
-                value={formData.email}
+                value={formData.customer.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
                 className={`w-full pl-10 pr-4 py-3 bg-[#1E1E1E] border rounded-lg text-white placeholder-[#DDDDDD]/60 focus:outline-none focus:ring-2 transition-all duration-200 ${
                   errors.email 
@@ -208,8 +290,8 @@ const OrderForm: React.FC = () => {
               <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#DDDDDD]" />
               <select
                 id="wilaya"
-                value={formData.wilaya}
-                onChange={(e) => handleInputChange('wilaya', e.target.value)}
+                value={formData.customer.wilaya}
+                onChange={(e) => handleWilayaChange(e.target.value)}
                 className={`w-full pl-10 pr-4 py-3 bg-[#1E1E1E] border rounded-lg text-white focus:outline-none focus:ring-2 transition-all duration-200 ${
                   errors.wilaya 
                     ? 'border-red-500 focus:ring-red-500/20' 
@@ -238,7 +320,7 @@ const OrderForm: React.FC = () => {
               <FileText className="absolute left-3 top-3 w-5 h-5 text-[#DDDDDD]" />
               <textarea
                 id="extraInfo"
-                value={formData.extraInfo}
+                value={formData.customer.extraInfo}
                 onChange={(e) => handleInputChange('extraInfo', e.target.value)}
                 rows={4}
                 className="w-full pl-10 pr-4 py-3 bg-[#1E1E1E] border border-[#3a3a3a] rounded-lg text-white placeholder-[#DDDDDD]/60 focus:outline-none focus:ring-2 focus:border-[#FF6600] focus:ring-[#FF6600]/20 transition-all duration-200 resize-none"
@@ -256,10 +338,10 @@ const OrderForm: React.FC = () => {
             {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Processing Order...
+                Redirecting to Payment...
               </>
             ) : (
-              'Place Order'
+              'Proceed to Payment'
             )}
           </button>
         </form>
@@ -271,8 +353,8 @@ const OrderForm: React.FC = () => {
               <div className="w-4 h-4 bg-white rounded-full"></div>
             </div>
             <div>
-              <p className="text-green-400 font-medium text-sm">Secure Order Processing</p>
-              <p className="text-[#DDDDDD] text-xs">Your information is protected with 256-bit SSL encryption</p>
+              <p className="text-green-400 font-medium text-sm">Secure Payment Processing</p>
+              <p className="text-[#DDDDDD] text-xs">Your payment is processed securely by Chargily</p>
             </div>
           </div>
         </div>

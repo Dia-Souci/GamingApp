@@ -133,6 +133,20 @@ export class Game {
 
   @Prop([String])
   keywords: string[];
+
+  // Activation Keys for Digital Games
+  @Prop([{
+    key: { type: String, required: true },
+    isUsed: { type: Boolean, default: false },
+    addedAt: { type: Date, default: Date.now },
+    usedAt: { type: Date },
+  }])
+  activationKeys: Array<{
+    key: string;
+    isUsed: boolean;
+    addedAt: Date;
+    usedAt?: Date;
+  }>;
 }
 
 export const GameSchema = SchemaFactory.createForClass(Game);

@@ -4,7 +4,7 @@ import { ApiError, apiUtils } from '../services/api';
 // Generic hook for API calls
 export function useApi<T>(
   apiCall: () => Promise<T>,
-  dependencies: any[] = []
+  dependencies: unknown[] = []
 ) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export function useApi<T>(
 }
 
 // Hook for manual API calls (e.g., form submissions)
-export function useApiMutation<T, P = any>() {
+export function useApiMutation<T, P = unknown>() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,10 +60,10 @@ export function useApiMutation<T, P = any>() {
 
 // Hook for paginated data
 export function usePaginatedApi<T>(
-  apiCall: (page: number, limit: number, filters?: any) => Promise<{ data: T[]; total: number }>,
+  apiCall: (page: number, limit: number, filters?: unknown) => Promise<{ data: T[]; total: number }>,
   initialPage: number = 1,
   limit: number = 10,
-  filters?: any
+  filters?: unknown
 ) {
   const [data, setData] = useState<T[]>([]);
   const [total, setTotal] = useState(0);

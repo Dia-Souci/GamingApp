@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useGameStore, Game } from '../store/gameStore';
+import { useGameStore } from '../store/gameStore';
 import GameCard from './GameCard';
 import SearchBar from './SearchBar';
 
@@ -50,14 +50,15 @@ const CategoryGameGrid: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-6">
           {games.map((game) => (
             <GameCard
-              key={game.id}
-              id={game.id}
+              key={game._id}
+              _id={game._id}
               title={game.title}
               originalPrice={game.originalPrice}
               discountedPrice={game.discountedPrice}
               discount={game.discount}
               platform={game.platform}
               imageUrl={game.imageUrl}
+              videoUrl={game.videoUrl}
             />
           ))}
         </div>

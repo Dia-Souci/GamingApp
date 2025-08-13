@@ -2,14 +2,14 @@
 export const API_CONFIG = {
   // Base URLs for different environments
   BASE_URLS: {
-    development: 'http://localhost:3000',
-    staging: 'https://api-staging.yourdomain.com',
-    production: 'https://api.yourdomain.com',
+    development: 'http://localhost:3000/api',
+    staging: 'https://api-staging.yourdomain.com/api',
+    production: 'https://api.yourdomain.com/api',
   },
   
   // Request timeouts
   TIMEOUTS: {
-    default: 5000,
+    default: 10000,
     upload: 30000,
     download: 60000,
   },
@@ -46,29 +46,43 @@ export const FEATURES = {
   ENABLE_ERROR_REPORTING: import.meta.env.VITE_ENABLE_ERROR_REPORTING === 'true',
 };
 
-// API endpoints
+// API endpoints - Updated to match backend structure
 export const ENDPOINTS = {
-  // Product endpoints
-  PRODUCTS: '/products',
-  PRODUCT_BY_ID: (id: string) => `/products/${id}`,
-  FEATURED_PRODUCTS: '/products/featured',
+  // Game endpoints
+  GAMES: '/games',
+  GAME_BY_ID: (id: string) => `/games/${id}`,
+  GAME_BY_SLUG: (slug: string) => `/games/slug/${slug}`,
+  FEATURED_GAMES: '/games/featured',
+  SEARCH_GAMES: '/games/search',
   
   // Order endpoints
   ORDERS: '/orders',
   ORDER_BY_ID: (id: string) => `/orders/${id}`,
   ORDER_STATUS: (id: string) => `/orders/${id}/status`,
+  GUEST_ORDER: '/orders/guest',
+  GUEST_ORDER_BY_NUMBER: (orderNumber: string) => `/orders/guest/${orderNumber}`,
+  GUEST_ORDER_LOOKUP: '/orders/guest/lookup/email',
+  GUEST_ORDER_CANCEL: (orderNumber: string) => `/orders/guest/${orderNumber}/cancel`,
   
-  // Auth endpoints
+  // Payment endpoints
+  PAYMENT_INITIATE: '/payment/initiate',
+  PAYMENT_CHECKOUT: (checkoutId: string) => `/payment/checkout/${checkoutId}`,
+  PAYMENT_SUCCESS: '/payment/success',
+  PAYMENT_FAILURE: '/payment/failure',
+  PAYMENT_REFUND: (checkoutId: string) => `/payment/refund/${checkoutId}`,
+  PAYMENT_WEBHOOK: '/payment/webhook/chargily',
+  
+  // Auth endpoints (for future use)
   LOGIN: '/auth/login',
   LOGOUT: '/auth/logout',
   PROFILE: '/auth/profile',
   REFRESH: '/auth/refresh',
   
-  // Admin endpoints
-  ADMIN_DASHBOARD: '/admin/dashboard',
-  ADMIN_USERS: '/admin/users',
-  ADMIN_PRODUCTS: '/admin/products',
-  ADMIN_PRODUCT_BY_ID: (id: string) => `/admin/products/${id}`,
+  // Cart endpoints
+  CART: '/cart',
+  CART_ADD: '/cart/items',
+  CART_REMOVE: (gameId: string, platform: string) => `/cart/items/${gameId}/${platform}`,
+  CART_UPDATE: (gameId: string, platform: string) => `/cart/items/${gameId}/${platform}`,
 };
 
 export default {

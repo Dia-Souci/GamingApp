@@ -1,10 +1,19 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
+import { getBaseUrl, ENDPOINTS } from './apiConfig';
 import { Game } from '../store/gameStore';
-import { OrderFormData, Order, CartItem } from '../types/order';
+import { 
+  OrderFormData, 
+  Order, 
+  CartItem, 
+  CreateOrderRequest,
+  PaymentInfo,
+  CheckoutSession,
+  RefundInfo
+} from '../types/order';
 
 // API Response Types
 export interface ApiResponse<T> {
-  data: T;
+  data?: T;
   message?: string;
   status: number;
 }
@@ -34,19 +43,15 @@ export interface GameFilters {
   sortOrder?: 'asc' | 'desc';
 }
 
-export interface CreateOrderRequest extends OrderFormData {
-  items: CartItem[];
-  totalAmount: number;
-}
-
 // Create axios instance with configuration
 const createApiInstance = (): AxiosInstance => {
   const instance = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
-    timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '5000'),
+    baseURL: getBaseUrl(),
+    timeout: 10000,
     headers: {
       'Content-Type': 'application/json',
     },
+    withCredentials: true, // For cookie-based sessions
   });
 
   // Request interceptor for adding auth token
@@ -112,16 +117,15 @@ const createApiInstance = (): AxiosInstance => {
 
 const api = createApiInstance();
 
-// Game Service (adapted from your existing game store)
+// Game Service
 export const gameService = {
   /**
    * Get all games with optional filtering
    */
   getAll: async (filters?: GameFilters): Promise<PaginatedResponse<Game>> => {
-    const response = await api.get<PaginatedResponse<Game>>('/games', {
+    const response = await api.get<PaginatedResponse<Game>>(ENDPOINTS.GAMES, {
       params: filters,
     });
-    console.log('Here Mock API Call')
     return response.data;
   },
 
@@ -129,15 +133,23 @@ export const gameService = {
    * Get a single game by ID
    */
   getById: async (id: string): Promise<Game> => {
-    const response = await api.get<ApiResponse<Game>>(`/games/${id}`);
-    return response.data.data;
+    const response = await api.get<ApiResponse<Game>>(ENDPOINTS.GAME_BY_ID(id));
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Get a single game by slug
+   */
+  getBySlug: async (slug: string): Promise<Game> => {
+    const response = await api.get<ApiResponse<Game>>(ENDPOINTS.GAME_BY_SLUG(slug));
+    return response.data.data || response.data;
   },
 
   /**
    * Get games by category/platform
    */
   getByPlatform: async (platform: string, filters?: Omit<GameFilters, 'platform'>): Promise<PaginatedResponse<Game>> => {
-    const response = await api.get<PaginatedResponse<Game>>('/games', {
+    const response = await api.get<PaginatedResponse<Game>>(ENDPOINTS.GAMES, {
       params: { ...filters, platform },
     });
     return response.data;
@@ -147,7 +159,7 @@ export const gameService = {
    * Search games by query
    */
   search: async (query: string, filters?: Omit<GameFilters, 'q'>): Promise<PaginatedResponse<Game>> => {
-    const response = await api.get<PaginatedResponse<Game>>('/games', {
+    const response = await api.get<PaginatedResponse<Game>>(ENDPOINTS.SEARCH_GAMES, {
       params: { ...filters, q: query },
     });
     return response.data;
@@ -157,36 +169,89 @@ export const gameService = {
    * Get featured games
    */
   getFeatured: async (limit: number = 12): Promise<Game[]> => {
-    const response = await api.get<ApiResponse<Game[]>>('/games/featured', {
+    const response = await api.get<ApiResponse<Game[]>>(ENDPOINTS.FEATURED_GAMES, {
       params: { limit },
     });
-    return response.data.data;
+    return response.data.data || response.data;
   },
 };
 
 // Order Service
 export const orderService = {
   /**
-   * Create a new order
+   * Create a new guest order
    */
-  create: async (orderData: CreateOrderRequest): Promise<Order> => {
-    const response = await api.post<ApiResponse<Order>>('/orders', orderData);
-    return response.data.data;
+  createGuestOrder: async (orderData: CreateOrderRequest, sessionId: string): Promise<{
+    order: Order;
+    guestToken: string;
+    message: string;
+    trackingInfo: {
+      orderNumber: string;
+      guestToken: string;
+      trackingUrl: string;
+    };
+  }> => {
+    const response = await api.post<ApiResponse<{
+      order: Order;
+      guestToken: string;
+      message: string;
+      trackingInfo: {
+        orderNumber: string;
+        guestToken: string;
+        trackingUrl: string;
+      };
+    }>>(ENDPOINTS.GUEST_ORDER, orderData, {
+      headers: {
+        'X-Session-ID': sessionId,
+      },
+    });
+    return response.data.data || response.data;
   },
 
   /**
-   * Get order by ID
+   * Get guest order by order number and token
+   */
+  getGuestOrder: async (orderNumber: string, guestToken: string): Promise<Order> => {
+    const response = await api.get<ApiResponse<Order>>(ENDPOINTS.GUEST_ORDER_BY_NUMBER(orderNumber), {
+      params: { token: guestToken },
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Get orders by email
+   */
+  getOrdersByEmail: async (email: string, page: number = 1, limit: number = 10): Promise<PaginatedResponse<Order>> => {
+    const response = await api.get<PaginatedResponse<Order>>(ENDPOINTS.GUEST_ORDER_LOOKUP, {
+      params: { email, page, limit },
+    });
+    return response.data;
+  },
+
+  /**
+   * Cancel guest order
+   */
+  cancelGuestOrder: async (orderNumber: string, guestToken: string, reason?: string): Promise<Order> => {
+    const response = await api.put<ApiResponse<Order>>(ENDPOINTS.GUEST_ORDER_CANCEL(orderNumber), {
+      guestToken,
+      reason,
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Get order by ID (for authenticated users)
    */
   getById: async (id: string): Promise<Order> => {
-    const response = await api.get<ApiResponse<Order>>(`/orders/${id}`);
-    return response.data.data;
+    const response = await api.get<ApiResponse<Order>>(ENDPOINTS.ORDER_BY_ID(id));
+    return response.data.data || response.data;
   },
 
   /**
    * Get all orders (admin only)
    */
   getAll: async (filters?: { page?: number; limit?: number; status?: string }): Promise<PaginatedResponse<Order>> => {
-    const response = await api.get<PaginatedResponse<Order>>('/orders', {
+    const response = await api.get<PaginatedResponse<Order>>(ENDPOINTS.ORDERS, {
       params: filters,
     });
     return response.data;
@@ -196,8 +261,156 @@ export const orderService = {
    * Update order status (admin only)
    */
   updateStatus: async (id: string, status: Order['status']): Promise<Order> => {
-    const response = await api.patch<ApiResponse<Order>>(`/orders/${id}/status`, { status });
-    return response.data.data;
+    const response = await api.patch<ApiResponse<Order>>(ENDPOINTS.ORDER_STATUS(id), { status });
+    return response.data.data || response.data;
+  },
+};
+
+// Cart Service
+export const cartService = {
+  /**
+   * Get cart for session
+   */
+  getCart: async (sessionId: string): Promise<any> => {
+    const response = await api.get<ApiResponse<any>>(ENDPOINTS.CART, {
+      headers: { 'X-Session-ID': sessionId }
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Add item to cart
+   */
+  addToCart: async (sessionId: string, gameId: string, platform: string, quantity: number = 1): Promise<any> => {
+    const response = await api.post<ApiResponse<any>>(ENDPOINTS.CART_ADD, {
+      gameId,
+      platform,
+      quantity
+    }, {
+      headers: { 'X-Session-ID': sessionId }
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Update cart item quantity
+   */
+  updateCartItem: async (sessionId: string, gameId: string, platform: string, quantity: number): Promise<any> => {
+    const response = await api.put<ApiResponse<any>>(ENDPOINTS.CART_UPDATE(gameId, platform), {
+      quantity
+    }, {
+      headers: { 'X-Session-ID': sessionId }
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Remove item from cart
+   */
+  removeFromCart: async (sessionId: string, gameId: string, platform: string): Promise<any> => {
+    const response = await api.delete<ApiResponse<any>>(ENDPOINTS.CART_REMOVE(gameId, platform), {
+      headers: { 'X-Session-ID': sessionId }
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Clear cart
+   */
+  clearCart: async (sessionId: string): Promise<any> => {
+    const response = await api.delete<ApiResponse<any>>(ENDPOINTS.CART, {
+      headers: { 'X-Session-ID': sessionId }
+    });
+    return response.data.data || response.data;
+  },
+};
+
+// Payment Service
+export const paymentService = {
+  /**
+   * Initiate payment for an order
+   */
+  initiatePayment: async (
+    orderData: CreateOrderRequest,
+    sessionId: string,
+    successUrl: string,
+    failureUrl: string
+  ): Promise<{
+    order: {
+      orderNumber: string;
+      totalAmount: number;
+      currency: string;
+    };
+    guestToken: string;
+    checkout: {
+      id: string;
+      url: string;
+      expiresAt: string;
+    };
+    customer: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }> => {
+    const response = await api.post<ApiResponse<{
+      order: {
+        orderNumber: string;
+        totalAmount: number;
+        currency: string;
+      };
+      guestToken: string;
+      checkout: {
+        id: string;
+        url: string;
+        expiresAt: string;
+      };
+      customer: {
+        id: string;
+        name: string;
+        email: string;
+      };
+    }>>(ENDPOINTS.PAYMENT_INITIATE, orderData, {
+      params: {
+        sessionId,
+        successUrl,
+        failureUrl,
+      },
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Get checkout session details
+   */
+  getCheckoutSession: async (checkoutId: string): Promise<CheckoutSession> => {
+    const response = await api.get<ApiResponse<CheckoutSession>>(ENDPOINTS.PAYMENT_CHECKOUT(checkoutId));
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Process refund
+   */
+  processRefund: async (checkoutId: string, amount?: number): Promise<RefundInfo> => {
+    const response = await api.post<ApiResponse<RefundInfo>>(ENDPOINTS.PAYMENT_REFUND(checkoutId), {
+      amount: amount ? Math.round(amount * 100) : undefined, // Convert to cents
+    });
+    return response.data.data || response.data;
+  },
+
+  /**
+   * Get payment information for an order
+   */
+  getPaymentInfo: async (orderNumber: string): Promise<PaymentInfo | null> => {
+    try {
+      const response = await api.get<ApiResponse<PaymentInfo>>(`/payment/order/${orderNumber}/info`);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      if (error.status === 404) {
+        return null; // No payment info found
+      }
+      throw error;
+    }
   },
 };
 
@@ -229,6 +442,36 @@ export const apiUtils = {
     
     return error.message || 'An unexpected error occurred';
   },
+
+  /**
+   * Format date consistently
+   */
+  formatDate: (date: string | Date): string => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  },
+
+  /**
+   * Format currency consistently
+   */
+  formatCurrency: (amount: number, currency: string = 'DZD'): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).format(amount);
+  },
+
+  /**
+   * Generate session ID for cart
+   */
+  generateSessionId: (): string => {
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  },
 };
 
 // Export the configured axios instance for custom requests
@@ -238,6 +481,7 @@ export { api };
 export default {
   gameService,
   orderService,
+  paymentService,
   apiUtils,
 };
 

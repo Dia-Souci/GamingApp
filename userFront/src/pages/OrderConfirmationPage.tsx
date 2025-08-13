@@ -142,7 +142,7 @@ const OrderConfirmationPage: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#DDDDDD]">Total Amount:</span>
-                    <span className="text-white font-bold">${order.totalAmount.toFixed(2)}</span>
+                    <span className="text-white font-bold">{order.totalAmount.toFixed(2)} DZD</span>
                   </div>
                 </div>
               </div>
@@ -199,11 +199,11 @@ const OrderConfirmationPage: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-white font-bold">
-                        ${(item.discountedPrice * item.quantity).toFixed(2)}
+                        {(item.discountedPrice * item.quantity).toFixed(2)} DZD
                       </p>
                       {item.discount > 0 && (
                         <p className="text-[#DDDDDD] text-sm line-through">
-                          ${(item.originalPrice * item.quantity).toFixed(2)}
+                          {(item.originalPrice * item.quantity).toFixed(2)} DZD
                         </p>
                       )}
                     </div>

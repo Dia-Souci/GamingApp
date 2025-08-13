@@ -154,6 +154,54 @@ export class OrdersController {
     return this.ordersService.getOrderStats();
   }
 
+  // NEW: Manual payment confirmation (for development/testing)
+  @Post('admin/:orderNumber/confirm-payment')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async confirmPayment(
+    @Param('orderNumber') orderNumber: string,
+    @CurrentUser() user: any,
+  ) {
+    const order = await this.ordersService.confirmPayment(orderNumber);
+    return {
+      success: true,
+      message: 'Payment confirmed manually',
+      order: {
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        updatedAt: (order as any).updatedAt || new Date(),
+      },
+    };
+  }
+
+  // NEW: Assign activation keys and deliver order (for manual flow)
+  @Post('admin/:orderNumber/assign-keys-and-deliver')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async assignActivationKeysAndDeliver(
+    @Param('orderNumber') orderNumber: string,
+    @CurrentUser() user: any,
+  ) {
+    const order = await this.ordersService.assignActivationKeysAndDeliver(orderNumber);
+    return {
+      success: true,
+      message: 'Activation keys assigned and order delivered',
+      order: {
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        items: order.items.map(item => ({
+          title: item.title,
+          platform: item.platform,
+          keyDelivered: item.keyDelivered,
+          keyDeliveredAt: item.keyDeliveredAt,
+        })),
+        updatedAt: (order as any).updatedAt || new Date(),
+      },
+    };
+  }
+
   // Debug endpoint to check authentication
   @Get('debug/auth')
   @UseGuards(JwtAuthGuard)

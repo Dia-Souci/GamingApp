@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Eye, Edit, Trash2, Download, AlertTriangle, Loader2 } from 'lucide-react';
+import { Search, Eye, Download, AlertTriangle, Loader2 } from 'lucide-react';
 import { Card } from '../components/UI/Card';
 import { Button } from '../components/UI/Button';
 import { StatusBadge } from '../components/UI/StatusBadge';
 import { usePaginatedApi, useApiMutation } from '../hooks/useApi';
-import { ordersService, apiUtils, type Order } from '../services/api';
+import { ordersService, paymentService, apiUtils, type Order, type PaymentInfo } from '../services/api';
 
 // Separate modal component to prevent recreation
 const OrderDetailsModal: React.FC<{ 
   order: Order; 
   onClose: () => void;
-  onUpdateStatus: (orderNumber: string, status: Order['status'], paymentStatus?: Order['paymentStatus']) => Promise<any>;
+  onUpdateStatus: (orderNumber: string, status: Order['status'], paymentStatus?: Order['paymentStatus']) => Promise<Order | null>;
 }> = ({ order, onClose, onUpdateStatus }) => {
   const [newStatus, setNewStatus] = useState<Order['status']>(order.status);
   const [newPaymentStatus, setNewPaymentStatus] = useState<Order['paymentStatus']>(order.paymentStatus);
   const [note, setNote] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
+  const [refundAmount, setRefundAmount] = useState<number | undefined>();
+  const [processingRefund, setProcessingRefund] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [assigningKeys, setAssigningKeys] = useState(false);
 
   // Reset form when order changes - use useCallback to prevent recreation
   const resetForm = useCallback(() => {
@@ -28,6 +34,70 @@ const OrderDetailsModal: React.FC<{
   useEffect(() => {
     resetForm();
   }, [resetForm]);
+
+  // Load payment information when order changes
+  useEffect(() => {
+    const loadPaymentInfo = async () => {
+      if (order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') {
+        setLoadingPaymentInfo(true);
+        try {
+          const info = await paymentService.getPaymentInfo(order.orderNumber);
+          setPaymentInfo(info);
+        } catch (error) {
+          console.error('Failed to load payment info:', error);
+        } finally {
+          setLoadingPaymentInfo(false);
+        }
+      }
+    };
+
+    loadPaymentInfo();
+  }, [order.orderNumber, order.paymentStatus]);
+
+  const handleRefund = async () => {
+    if (!paymentInfo?.transactionId) return;
+    
+    try {
+      setProcessingRefund(true);
+      await paymentService.processRefund(paymentInfo.transactionId, refundAmount);
+      // Refresh payment info after refund
+      const info = await paymentService.getPaymentInfo(order.orderNumber);
+      setPaymentInfo(info);
+      setRefundAmount(undefined);
+    } catch (error) {
+      console.error('Failed to process refund:', error);
+    } finally {
+      setProcessingRefund(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    try {
+      setConfirmingPayment(true);
+      await ordersService.confirmPayment(order.orderNumber);
+      // Refresh the order data
+      const updatedOrder = await ordersService.getOne(order.orderNumber);
+      onUpdateStatus(order.orderNumber, updatedOrder.status, updatedOrder.paymentStatus);
+    } catch (error) {
+      console.error('Failed to confirm payment:', error);
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  const handleAssignKeysAndDeliver = async () => {
+    try {
+      setAssigningKeys(true);
+      await ordersService.assignActivationKeysAndDeliver(order.orderNumber);
+      // Refresh the order data
+      const updatedOrder = await ordersService.getOne(order.orderNumber);
+      onUpdateStatus(order.orderNumber, updatedOrder.status, updatedOrder.paymentStatus);
+    } catch (error) {
+      console.error('Failed to assign keys and deliver:', error);
+    } finally {
+      setAssigningKeys(false);
+    }
+  };
 
   const handleUpdate = async () => {
     try {
@@ -129,6 +199,60 @@ const OrderDetailsModal: React.FC<{
               </div>
             </div>
 
+            {/* Payment Information */}
+            {(order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') && (
+              <div className="bg-[#1b1f24] rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-white mb-3">Payment Information</h3>
+                {loadingPaymentInfo ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#ff5100]" />
+                    <span className="ml-2 text-[#c4c4c4]">Loading payment info...</span>
+                  </div>
+                ) : paymentInfo ? (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-[#c4c4c4]">Payment Method:</span>
+                      <span className="text-white capitalize">{paymentInfo.paymentGateway}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#c4c4c4]">Transaction ID:</span>
+                      <span className="text-white font-mono text-xs">{paymentInfo.transactionId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#c4c4c4]">Paid At:</span>
+                      <span className="text-white">{apiUtils.formatDate(paymentInfo.paidAt)}</span>
+                    </div>
+                    
+                    {/* Refund Section */}
+                    {order.paymentStatus === 'paid' && (
+                      <div className="mt-4 pt-3 border-t border-[#3a3f45]">
+                        <h4 className="text-md font-semibold text-white mb-2">Process Refund</h4>
+                        <div className="space-y-2">
+                          <input
+                            type="number"
+                            placeholder="Refund amount (leave empty for full refund)"
+                            value={refundAmount || ''}
+                            onChange={(e) => setRefundAmount(e.target.value ? parseFloat(e.target.value) : undefined)}
+                            className="w-full px-3 py-2 bg-[#2a2f35] border border-[#3a3f45] rounded text-white text-sm"
+                          />
+                          <Button
+                            onClick={handleRefund}
+                            disabled={processingRefund}
+                            variant="danger"
+                            className="w-full"
+                          >
+                            {processingRefund ? 'Processing...' : 'Process Refund'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[#c4c4c4] text-sm">No payment information available</p>
+                )}
+              </div>
+            )}
+
             {/* Status Update */}
             <div className="bg-[#1b1f24] rounded-lg p-4">
               <h3 className="text-lg font-semibold text-white mb-3">Update Status</h3>
@@ -178,6 +302,53 @@ const OrderDetailsModal: React.FC<{
                 >
                   {updating ? 'Updating...' : 'Update Status'}
                 </Button>
+              </div>
+            </div>
+
+            {/* Manual Flow Completion (Development/Testing) */}
+            <div className="bg-[#1b1f24] rounded-lg p-4 border-l-4 border-yellow-500">
+              <h3 className="text-lg font-semibold text-white mb-3">Manual Flow Completion</h3>
+              <p className="text-[#c4c4c4] text-sm mb-4">
+                Use these buttons to manually complete the payment flow for testing purposes.
+              </p>
+              
+              <div className="space-y-3">
+                {/* Confirm Payment Button */}
+                {order.paymentStatus !== 'paid' && (
+                  <Button
+                    onClick={handleConfirmPayment}
+                    disabled={confirmingPayment}
+                    variant="secondary"
+                    className="w-full"
+                  >
+                    {confirmingPayment ? 'Confirming...' : 'Confirm Payment (Manual)'}
+                  </Button>
+                )}
+
+                {/* Assign Keys and Deliver Button */}
+                {order.paymentStatus === 'paid' && order.status !== 'delivered' && (
+                  <Button
+                    onClick={handleAssignKeysAndDeliver}
+                    disabled={assigningKeys}
+                    variant="primary"
+                    className="w-full"
+                  >
+                    {assigningKeys ? 'Processing...' : 'Assign Keys & Deliver'}
+                  </Button>
+                )}
+
+                {/* Status indicators */}
+                {order.paymentStatus === 'paid' && (
+                  <div className="text-green-400 text-sm text-center">
+                    ✓ Payment Confirmed
+                  </div>
+                )}
+                
+                {order.status === 'delivered' && (
+                  <div className="text-green-400 text-sm text-center">
+                    ✓ Order Delivered with Keys
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -246,7 +417,7 @@ const OrderDetailsModal: React.FC<{
                       <div className="w-2 h-2 bg-[#ff5100] rounded-full mt-2 flex-shrink-0"></div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <StatusBadge status={event.status as any} />
+                          <StatusBadge status={event.status as Order['status']} />
                           <span className="text-[#c4c4c4] text-xs">
                             {apiUtils.formatDate(event.timestamp)}
                           </span>
@@ -307,10 +478,13 @@ export const Orders: React.FC = () => {
 
   const { mutate: updateOrderStatus, loading: updating } = useApiMutation();
 
-  const handleStatusUpdate = async (orderNumber: string, status: Order['status'], paymentStatus?: Order['paymentStatus']) => {
+  const handleStatusUpdate = async (orderNumber: string, status: Order['status'], paymentStatus?: Order['paymentStatus']): Promise<Order | null> => {
     const result = await updateOrderStatus(
-      (params: any) => ordersService.updateStatus(params.orderNumber, params.status, params.paymentStatus, params.note),
-      { orderNumber, status, paymentStatus, note: `Status updated to ${status}` }
+      ((params: unknown) => {
+        const typedParams = params as { orderNumber: string; status: Order['status']; paymentStatus?: Order['paymentStatus']; note: string };
+        return ordersService.updateStatus(typedParams.orderNumber, typedParams.status, typedParams.paymentStatus, typedParams.note);
+      }) as (params: unknown) => Promise<Order>,
+      { orderNumber, status, paymentStatus, note: `Status updated to ${status}` } as unknown
     );
     
     if (result) {
@@ -318,7 +492,9 @@ export const Orders: React.FC = () => {
       if (selectedOrder && selectedOrder.orderNumber === orderNumber) {
         setSelectedOrder(result as Order);
       }
+      return result as Order;
     }
+    return null;
   };
 
   const handleDownload = async (order: Order) => {

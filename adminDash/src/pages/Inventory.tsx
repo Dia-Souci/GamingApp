@@ -12,6 +12,15 @@ export const Inventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showActivationKeys, setShowActivationKeys] = useState(false);
+  const [activationKeys, setActivationKeys] = useState<Array<{
+    key: string;
+    isUsed: boolean;
+    addedAt: Date;
+    usedAt?: Date;
+  }>>([]);
+  const [loadingKeys, setLoadingKeys] = useState(false);
+  const [newKeys, setNewKeys] = useState('');
   
   // Memoize the API call function to prevent recreation on every render
   const apiCall = useCallback((page: number, limit: number) => 
@@ -41,11 +50,41 @@ export const Inventory: React.FC = () => {
   const { mutate: updateGame, loading: updating } = useApiMutation();
   const { mutate: deleteGame, loading: deleting } = useApiMutation();
 
+  // Load activation keys for a game
+  const loadActivationKeys = async (gameId: string) => {
+    setLoadingKeys(true);
+    try {
+      const keys = await gamesService.getActivationKeys(gameId);
+      setActivationKeys(keys);
+    } catch (error) {
+      console.error('Failed to load activation keys:', error);
+    } finally {
+      setLoadingKeys(false);
+    }
+  };
+
+  // Add new activation keys
+  const handleAddKeys = async () => {
+    if (!selectedGame || !newKeys.trim()) return;
+    
+    const keysArray = newKeys.split('\n').map(key => key.trim()).filter(Boolean);
+    if (keysArray.length === 0) return;
+
+    try {
+      await gamesService.addActivationKeys(selectedGame._id, keysArray);
+      setNewKeys('');
+      await loadActivationKeys(selectedGame._id);
+    } catch (error) {
+      console.error('Failed to add activation keys:', error);
+    }
+  };
+
   const GameForm: React.FC<{ game?: Game; onClose: () => void }> = ({ game, onClose }) => {
     const [formData, setFormData] = useState({
       title: game?.title || '',
       slug: game?.slug || '',
       description: game?.description || '',
+      longDescription: game?.longDescription || '',
       platform: game?.platform || 'pc',
       originalPrice: game?.originalPrice || 0,
       discountedPrice: game?.discountedPrice || 0,
@@ -54,6 +93,10 @@ export const Inventory: React.FC = () => {
       publisher: game?.publisher || '',
       genre: game?.genre?.join(', ') || '',
       tags: game?.tags?.join(', ') || '',
+      imageUrl: game?.imageUrl || '',
+      heroImageUrl: game?.heroImageUrl || '',
+      screenshots: game?.screenshots?.join(', ') || '',
+      videoUrl: game?.videoUrl || '',
       featured: game?.featured || false,
       status: game?.status || 'active'
     });
@@ -66,6 +109,7 @@ export const Inventory: React.FC = () => {
         slug: formData.slug || apiUtils.generateSlug(formData.title),
         genre: formData.genre.split(',').map(g => g.trim()).filter(Boolean),
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        screenshots: formData.screenshots.split(',').map(s => s.trim()).filter(Boolean),
         discount: formData.discountedPrice > 0 
           ? Math.round(((formData.originalPrice - formData.discountedPrice) / formData.originalPrice) * 100)
           : 0,
@@ -73,10 +117,10 @@ export const Inventory: React.FC = () => {
       };
 
       const apiCall = game 
-        ? (data: any) => gamesService.update(game._id, data)
-        : (data: any) => gamesService.create(data);
+        ? (data: Partial<Game>) => gamesService.update(game._id, data)
+        : (data: Omit<Game, '_id' | 'createdAt' | 'updatedAt'>) => gamesService.create(data);
 
-      updateGame(apiCall, gameData).then((result) => {
+      updateGame(apiCall as (params: unknown) => Promise<Game>, gameData as unknown).then((result) => {
         if (result) {
           refetch();
           onClose();
@@ -259,23 +303,146 @@ export const Inventory: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Game Image</label>
-              <div className="border-2 border-dashed border-[#3a3f45] rounded-lg p-6 text-center hover:border-[#ff5100] transition-colors">
-                <Upload className="w-8 h-8 text-[#c4c4c4] mx-auto mb-2" />
-                <p className="text-[#c4c4c4] text-sm">Drag and drop an image, or click to select</p>
-                <input type="file" accept="image/*" className="hidden" />
-              </div>
+              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Game Image URL</label>
+              <input
+                type="url"
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors"
+                placeholder="https://example.com/game-image.jpg"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Description</label>
+              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Hero Image URL</label>
+              <input
+                type="url"
+                value={formData.heroImageUrl}
+                onChange={(e) => setFormData({ ...formData, heroImageUrl: e.target.value })}
+                className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors"
+                placeholder="https://example.com/hero-image.jpg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Screenshots URLs (comma separated)</label>
+              <textarea
+                value={formData.screenshots}
+                onChange={(e) => setFormData({ ...formData, screenshots: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors resize-none"
+                placeholder="https://example.com/screenshot1.jpg, https://example.com/screenshot2.jpg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Video URL</label>
+              <input
+                type="url"
+                value={formData.videoUrl}
+                onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors"
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Short Description</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
                 className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors resize-none"
+                placeholder="Brief description of the game"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#c4c4c4] mb-2">Long Description</label>
+              <textarea
+                value={formData.longDescription}
+                onChange={(e) => setFormData({ ...formData, longDescription: e.target.value })}
+                rows={5}
+                className="w-full px-4 py-2 bg-[#1b1f24] border border-[#3a3f45] rounded-lg text-white placeholder-[#c4c4c4] focus:outline-none focus:border-[#ff5100] transition-colors resize-none"
+                placeholder="Detailed description of the game with features, gameplay, etc."
+              />
+            </div>
+
+            {/* Media Previews */}
+            {(formData.imageUrl || formData.heroImageUrl || formData.screenshots || formData.videoUrl) && (
+              <div className="border-t border-[#3a3f45] pt-4">
+                <h3 className="text-lg font-semibold text-white mb-3">Media Previews</h3>
+                
+                {/* Image Previews */}
+                {(formData.imageUrl || formData.heroImageUrl || formData.screenshots) && (
+                  <div className="mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {formData.imageUrl && (
+                        <div>
+                          <p className="text-sm text-[#c4c4c4] mb-2">Game Image:</p>
+                          <img 
+                            src={formData.imageUrl} 
+                            alt="Game preview" 
+                            className="w-full h-32 object-cover rounded-lg border border-[#3a3f45]"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      {formData.heroImageUrl && (
+                        <div>
+                          <p className="text-sm text-[#c4c4c4] mb-2">Hero Image:</p>
+                          <img 
+                            src={formData.heroImageUrl} 
+                            alt="Hero preview" 
+                            className="w-full h-32 object-cover rounded-lg border border-[#3a3f45]"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {formData.screenshots && (
+                      <div className="mt-4">
+                        <p className="text-sm text-[#c4c4c4] mb-2">Screenshots:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {formData.screenshots.split(',').map((url, index) => {
+                            const trimmedUrl = url.trim();
+                            if (!trimmedUrl) return null;
+                            return (
+                              <img 
+                                key={index}
+                                src={trimmedUrl} 
+                                alt={`Screenshot ${index + 1}`} 
+                                className="w-full h-20 object-cover rounded border border-[#3a3f45]"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Video Preview */}
+                {formData.videoUrl && (
+                  <div>
+                    <p className="text-sm text-[#c4c4c4] mb-2">Video Preview:</p>
+                    <div className="bg-[#1b1f24] rounded-lg p-4 border border-[#3a3f45]">
+                      <p className="text-[#c4c4c4] text-sm">
+                        Video URL: <a href={formData.videoUrl} target="_blank" rel="noopener noreferrer" className="text-[#ff5100] hover:underline">{formData.videoUrl}</a>
+                      </p>
+                      <p className="text-[#c4c4c4] text-xs mt-1">Click the link to view the video</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-4 pt-4">
               <Button type="submit" className="flex-1">
@@ -291,11 +458,127 @@ export const Inventory: React.FC = () => {
     );
   };
 
+  // Activation Keys Modal
+  const ActivationKeysModal: React.FC = () => {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={() => setShowActivationKeys(false)}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-[#2a2f35] border border-[#3a3f45] rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Activation Keys</h2>
+              <p className="text-[#c4c4c4]">{selectedGame?.title}</p>
+            </div>
+            <Button variant="secondary" onClick={() => setShowActivationKeys(false)}>
+              Close
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Add New Keys */}
+            <div className="bg-[#1b1f24] rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-white mb-3">Add New Keys</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-[#c4c4c4] mb-1">
+                    Activation Keys (one per line)
+                  </label>
+                  <textarea
+                    value={newKeys}
+                    onChange={(e) => setNewKeys(e.target.value)}
+                    rows={6}
+                    className="w-full px-3 py-2 bg-[#2a2f35] border border-[#3a3f45] rounded text-white text-sm resize-none font-mono"
+                    placeholder="XXXXX-XXXXX-XXXXX-XXXXX&#10;YYYYY-YYYYY-YYYYY-YYYYY&#10;ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ"
+                  />
+                </div>
+                <Button
+                  onClick={handleAddKeys}
+                  disabled={loadingKeys || !newKeys.trim()}
+                  className="w-full"
+                >
+                  {loadingKeys ? 'Adding Keys...' : 'Add Keys'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Existing Keys */}
+            <div className="bg-[#1b1f24] rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-white mb-3">Existing Keys</h3>
+              {loadingKeys ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#ff5100]" />
+                  <span className="ml-2 text-[#c4c4c4]">Loading keys...</span>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {activationKeys.length === 0 ? (
+                    <p className="text-[#c4c4c4] text-sm text-center py-4">No activation keys found</p>
+                  ) : (
+                    activationKeys.map((key, index) => (
+                      <div
+                        key={index}
+                        className={`p-2 rounded text-sm font-mono ${
+                          key.isUsed
+                            ? 'bg-red-900/20 text-red-400 border border-red-500/30'
+                            : 'bg-green-900/20 text-green-400 border border-green-500/30'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span>{key.key}</span>
+                          <span className="text-xs">
+                            {key.isUsed ? 'Used' : 'Available'}
+                          </span>
+                        </div>
+                        {key.isUsed && key.usedAt && (
+                          <div className="text-xs text-[#c4c4c4] mt-1">
+                            Used: {apiUtils.formatDate(key.usedAt)}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              
+              <div className="mt-4 pt-3 border-t border-[#3a3f45]">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#c4c4c4]">Total Keys:</span>
+                  <span className="text-white">{activationKeys.length}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#c4c4c4]">Available:</span>
+                  <span className="text-green-400">
+                    {activationKeys.filter(k => !k.isUsed).length}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#c4c4c4]">Used:</span>
+                  <span className="text-red-400">
+                    {activationKeys.filter(k => k.isUsed).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
   const handleDelete = async (gameId: string) => {
     if (window.confirm('Are you sure you want to delete this game?')) {
       const result = await deleteGame(
-        (id: string) => gamesService.delete(id),
-        gameId
+        ((id: unknown) => gamesService.delete(id as string)) as (params: unknown) => Promise<unknown>,
+        gameId as unknown
       );
       
       if (result) {
@@ -492,6 +775,17 @@ export const Inventory: React.FC = () => {
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setSelectedGame(game);
+                        setShowActivationKeys(true);
+                        loadActivationKeys(game._id);
+                      }}
+                    >
+                      Keys
+                    </Button>
                     <Button 
                       size="sm" 
                       variant="danger"
@@ -553,6 +847,9 @@ export const Inventory: React.FC = () => {
           }}
         />
       )}
+
+      {/* Activation Keys Modal */}
+      {showActivationKeys && <ActivationKeysModal />}
     </div>
   );
 };
